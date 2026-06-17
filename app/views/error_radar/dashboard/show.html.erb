@@ -1,0 +1,72 @@
+<%
+  sev_colors = { 'info' => '#17a2b8', 'warning' => '#fd7e14', 'error' => '#dc3545', 'critical' => '#7b001c' }
+  status_colors = { 'open' => '#dc3545', 'in_progress' => '#fd7e14', 'resolved' => '#28a745', 'ignored' => '#6c757d' }
+%>
+
+<div class="sub"><%= link_to '← Back to dashboard', root_path %></div>
+
+<div class="panel">
+  <h1 style="font-size:18px">
+    <span class="badge" style="background: <%= status_colors[@error.status] %>"><%= @error.status %></span>
+    <span class="badge" style="background: <%= sev_colors[@error.severity] %>"><%= @error.severity %></span>
+    <%= @error.source.presence || @error.error_class %>
+  </h1>
+  <div class="sub"><%= @error.category %> · ×<%= @error.occurrences %> times · last seen <%= @error.last_seen_at&.strftime('%Y/%m/%d %H:%M') %></div>
+
+  <table>
+    <tr><th style="width:160px">Error class</th><td><%= @error.error_class %></td></tr>
+    <tr><th>Message</th><td><%= @error.message %></td></tr>
+    <tr><th>First seen</th><td><%= @error.first_seen_at %></td></tr>
+    <tr><th>Last seen</th><td><%= @error.last_seen_at %></td></tr>
+    <% if @error.http_status || @error.api_code %>
+      <tr><th>HTTP / API code</th><td><%= @error.http_status %> / code=<%= @error.api_code %> subcode=<%= @error.api_subcode %></td></tr>
+      <tr><th>Request URL</th><td style="word-break:break-all"><%= @error.request_url %></td></tr>
+    <% end %>
+    <% if @error.resolved_at %>
+      <tr><th>Resolved</th><td><%= @error.resolved_at %> by <%= @error.resolved_by %></td></tr>
+      <tr><th>Note</th><td><%= @error.resolution_note %></td></tr>
+    <% end %>
+  </table>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>Context</h2>
+  <pre style="white-space:pre-wrap;background:#f8fafc;padding:12px;border-radius:8px;max-height:320px;overflow:auto"><%= JSON.pretty_generate(@error.context || {}) %></pre>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>Backtrace</h2>
+  <pre style="white-space:pre-wrap;background:#f8fafc;padding:12px;border-radius:8px;max-height:480px;overflow:auto"><%= @error.backtrace %></pre>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>Change status</h2>
+  <% %w[open in_progress resolved ignored].each do |status| %>
+    <button class="status-btn" data-url="<%= error_status_path(@error) %>" data-status="<%= status %>"
+            style="padding:8px 14px;margin-right:8px;border:0;border-radius:8px;color:#fff;cursor:pointer;background: <%= status_colors[status] %>">
+      <%= status %>
+    </button>
+  <% end %>
+</div>
+
+<script>
+  (function () {
+    var token = document.querySelector('meta[name="csrf-token"]').content;
+    document.querySelectorAll('.status-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        fetch(btn.dataset.url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          body: JSON.stringify({ status: btn.dataset.status })
+        }).then(function (r) { return r.json(); })
+          .then(function (d) {
+            var t = document.getElementById('toast');
+            t.textContent = d.ok ? ('Moved → ' + d.status) : ('Error: ' + d.error);
+            t.style.background = d.ok ? '#16a34a' : '#dc2626';
+            t.classList.add('show');
+            setTimeout(function () { location.reload(); }, 700);
+          });
+      });
+    });
+  })();
+</script>

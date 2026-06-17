@@ -1,0 +1,9 @@
+/.bundle/
+/vendor/bundle/
+/pkg/
+/tmp/
+/log/
+*.gem
+Gemfile.lock
+.DS_Store
+.byebug_history

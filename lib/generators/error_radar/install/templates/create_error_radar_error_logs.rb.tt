@@ -1,0 +1,45 @@
+# frozen_string_literal: true
+
+class CreateErrorRadarErrorLogs < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :error_radar_error_logs do |t|
+      # Grouping / dedup key so repeated identical failures collapse into one task.
+      t.string  :fingerprint, null: false
+
+      # Classification
+      t.integer :category, null: false, default: 0
+      t.integer :severity, null: false, default: 2
+      t.integer :status,   null: false, default: 0
+
+      # What & where
+      t.string  :error_class
+      t.string  :source     # job / service / class that raised
+      t.text    :message
+      t.text    :backtrace
+      t.json    :context    # arbitrary structured payload
+
+      # API specifics (3rd-party APIs, etc.)
+      t.integer :http_status
+      t.string  :request_url, limit: 1000
+      t.integer :api_code
+      t.integer :api_subcode
+
+      # Occurrence tracking
+      t.integer  :occurrences,   null: false, default: 1
+      t.datetime :first_seen_at, null: false
+      t.datetime :last_seen_at,  null: false
+
+      # Task workflow
+      t.datetime :resolved_at
+      t.string   :resolved_by
+      t.text     :resolution_note
+
+      t.timestamps
+    end
+
+    add_index :error_radar_error_logs, :fingerprint, unique: true
+    add_index :error_radar_error_logs, %i[status severity]
+    add_index :error_radar_error_logs, :category
+    add_index :error_radar_error_logs, :last_seen_at
+  end
+end

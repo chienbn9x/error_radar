@@ -1,0 +1,185 @@
+<%
+  sev_colors = { 'info' => '#17a2b8', 'warning' => '#fd7e14', 'error' => '#dc3545', 'critical' => '#7b001c' }
+  status_labels = { 'open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'ignored' => 'Ignored' }
+%>
+
+<h1>🛰 Error Radar</h1>
+<div class="sub">
+  Track &amp; triage system errors
+  <% @external_links.each do |label, href| %>
+    · <%= link_to(label.to_s.humanize, href) %>
+  <% end %>
+</div>
+
+<div class="cards">
+  <div class="card tot"><div class="n"><%= @total %></div><div class="l">Total</div></div>
+  <div class="card open"><div class="n"><%= @open_count %></div><div class="l">Open</div></div>
+  <div class="card prog"><div class="n"><%= @in_progress %></div><div class="l">In progress</div></div>
+  <div class="card res"><div class="n"><%= @resolved_count %></div><div class="l">Resolved</div></div>
+  <div class="card ign"><div class="n"><%= @ignored_count %></div><div class="l">Ignored</div></div>
+</div>
+
+<% if (@servers || []).any? %>
+  <div class="panel" style="margin-bottom:20px">
+    <h2>Job Servers (Sidekiq · realtime from Redis)</h2>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <% @servers.each do |s| %>
+        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;border-left:5px solid <%= s.up ? '#28a745' : '#dc3545' %>">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong style="font-size:13px"><%= s.name %></strong>
+            <span class="badge" style="background: <%= s.up ? '#28a745' : '#dc3545' %>"><%= s.up ? 'UP' : 'DOWN' %></span>
+          </div>
+          <% if s.processes.any? %>
+            <% p = s.processes.first %>
+            <div style="font-size:11px;color:#6b7280;margin-top:6px">
+              host: <%= p[:hostname] %> · tag: <%= p[:tag] %><br>
+              busy <%= p[:busy] %>/<%= p[:concurrency] %> · RSS <%= p[:rss] %>KB<br>
+              heartbeat: <%= s.last_beat_ago %>s ago<%= ' · QUIET' if p[:quiet] %><br>
+              queues: <%= p[:queues].join(', ') %>
+            </div>
+          <% else %>
+            <div style="font-size:11px;color:#dc3545;margin-top:6px">No live process found.</div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    <% if (@unexpected || []).any? %>
+      <div style="font-size:11px;color:#6b7280;margin-top:10px">
+        Unregistered processes (<%= @unexpected.size %>):
+        <%= @unexpected.map { |p| "#{p[:hostname]}/#{p[:tag]} [#{p[:queues].join(',')}]" }.join(' · ') %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>Errors per day (30 days · by occurrences)</h2>
+    <canvas id="chart-trend" height="120"
+            data-type="line"
+            data-values="<%= @trend.to_json %>"
+            data-color="#dc3545"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Unresolved — by category</h2>
+    <canvas id="chart-category" height="120"
+            data-type="doughnut"
+            data-values="<%= @by_category.to_json %>"></canvas>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>Top 10 errors (unresolved, by occurrences)</h2>
+    <table>
+      <thead><tr><th>Severity</th><th>Source</th><th>Message</th><th>Count</th><th>Last seen</th></tr></thead>
+      <tbody>
+        <% @top.each do |e| %>
+          <tr>
+            <td><span class="badge" style="background: <%= sev_colors[e.severity] %>"><%= e.severity %></span></td>
+            <td><%= link_to e.source.presence || e.error_class, error_path(e) %></td>
+            <td><%= e.short_message %></td>
+            <td><%= e.occurrences %></td>
+            <td><%= e.last_seen_at&.strftime('%m/%d %H:%M') %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2>Unresolved — by severity</h2>
+    <canvas id="chart-severity" height="120"
+            data-type="bar"
+            data-values="<%= @by_severity.to_json %>"
+            data-color="#fd7e14"></canvas>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:20px">
+  <h2>Kanban — drag a card to change status</h2>
+  <div class="kanban">
+    <% %w[open in_progress resolved ignored].each do |status| %>
+      <% items = @columns[status] || [] %>
+      <div class="col">
+        <h3><%= status_labels[status] %> <span class="count"><%= items.size %></span></h3>
+        <div class="col-list" data-status="<%= status %>">
+          <% items.each do |e| %>
+            <div class="ticket sev-<%= e.severity %>" data-id="<%= e.id %>" data-url="<%= error_status_path(e) %>">
+              <div class="src"><%= link_to (e.source.presence || e.error_class || 'unknown'), error_path(e) %></div>
+              <div class="msg"><%= e.short_message %></div>
+              <div class="meta">
+                <span><%= e.category %></span>
+                <span class="occ">×<%= e.occurrences %></span>
+                <span><%= e.last_seen_at&.strftime('%m/%d %H:%M') %></span>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var token = document.querySelector('meta[name="csrf-token"]').content;
+
+    // --- charts (Chart.js) ---
+    var palette = ['#dc3545', '#fd7e14', '#17a2b8', '#7b001c', '#28a745', '#6c757d', '#2563eb'];
+    document.querySelectorAll('canvas[data-values]').forEach(function (el) {
+      var values = JSON.parse(el.dataset.values || '{}');
+      var labels = Object.keys(values);
+      var data = labels.map(function (k) { return values[k]; });
+      var type = el.dataset.type || 'bar';
+      var single = el.dataset.color || '#2563eb';
+      new Chart(el, {
+        type: type,
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: (type === 'doughnut') ? palette : single,
+            borderColor: single,
+            fill: false,
+            tension: 0.3
+          }]
+        },
+        options: {
+          plugins: { legend: { display: type === 'doughnut' } },
+          scales: (type === 'doughnut') ? {} : { y: { beginAtZero: true } }
+        }
+      });
+    });
+
+    // --- kanban ---
+    function toast(msg, ok) {
+      var t = document.getElementById('toast');
+      t.textContent = msg; t.style.background = ok ? '#16a34a' : '#dc2626';
+      t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000);
+    }
+    document.querySelectorAll('.col-list').forEach(function (list) {
+      Sortable.create(list, {
+        group: 'kanban', animation: 150,
+        onAdd: function (evt) {
+          var url = evt.item.dataset.url;
+          var status = evt.to.dataset.status;
+          fetch(url, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+            body: JSON.stringify({ status: status })
+          }).then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (d.ok) { toast('Moved #' + d.id + ' → ' + d.status, true); updateCounts(); }
+              else { toast('Error: ' + (d.error || 'update failed'), false); }
+            })
+            .catch(function () { toast('Network error on update', false); });
+        }
+      });
+    });
+    function updateCounts() {
+      document.querySelectorAll('.col').forEach(function (col) {
+        col.querySelector('.count').textContent = col.querySelectorAll('.ticket').length;
+      });
+    }
+  })();
+</script>
