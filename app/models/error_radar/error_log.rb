@@ -6,14 +6,11 @@ module ErrorRadar
   # One row per distinct failure (collapsed by fingerprint). Doubles as a task
   # on the triage board. Table: error_radar_error_logs.
   class ErrorLog < ApplicationRecord
-    enum category: {
-      application:  0, # generic Ruby/Rails runtime error
-      external_api: 1, # any 3rd-party API error
-      background_job: 2, # uncategorised background-job failure
-      syntax:       3, # SyntaxError / NameError / NoMethodError / ArgumentError / TypeError
-      database:     4, # ActiveRecord / DB level
-      network:      5  # timeouts, connection resets, DNS, ...
-    }, _prefix: :category
+    # Category map is host-configurable (built-in defaults + anything the app
+    # registers via ErrorRadar.config). Read at class-load, which happens after
+    # the host's initializer has run `ErrorRadar.configure`, so custom
+    # categories are already merged in. See ErrorRadar::Configuration.
+    enum category: ErrorRadar.config.categories, _prefix: :category
 
     enum severity: { info: 0, warning: 1, error: 2, critical: 3 }, _prefix: :severity
 

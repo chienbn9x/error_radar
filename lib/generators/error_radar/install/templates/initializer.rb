@@ -17,6 +17,15 @@ ErrorRadar.configure do |config|
   # config.authenticate = ->(controller) { controller.send(:authenticate_admin!) }
   # config.current_user = ->(controller) { controller.current_admin&.email }
 
+  # --- Custom categories (optional) ---
+  # Built-in categories: application, external_api, background_job, syntax,
+  # database, network. Add your own app-specific ones here. The stored integer
+  # is a schema — keep it stable once you have data. Add lightly:
+  # config.register_category(:instagram_api, 6)
+  #
+  # Or replace the whole map at once (defaults are merged in first):
+  # config.categories = { instagram_api: 6, payments_api: 7 }
+
   # --- Custom classification ---
   # Map your own exception types to a category. First non-nil wins.
   # config.categorize { |e| :external_api if e.is_a?(MyApi::Error) }

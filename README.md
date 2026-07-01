@@ -65,6 +65,26 @@ ErrorRadar.configure do |config|
 end
 ```
 
+### Custom categories
+
+The `category` enum ships with six built-ins — `application`, `external_api`,
+`background_job`, `syntax`, `database`, `network` — but is **not fixed**. Register
+your own without touching the gem:
+
+```ruby
+ErrorRadar.configure do |config|
+  config.register_category(:instagram_api, 6)   # add one
+  # or replace the whole map (defaults are merged in first):
+  config.categories = { instagram_api: 6, payments_api: 7 }
+end
+```
+
+The integer is the value stored in the `category` column, so treat it as a
+schema: keep it stable once you have data, and don't reuse a number for two
+names (a collision raises at boot). Custom categories work everywhere a built-in
+does — `capture`/`notify` calls, the `categorize` rules, the dashboard charts
+and the RailsAdmin board.
+
 ## Use
 
 ```ruby
