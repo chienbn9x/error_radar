@@ -15,10 +15,19 @@ ErrorRadar.configure do |config|
   config.install_rails_admin = true   # register the ErrorLog board (auto, if RailsAdmin present)
 
   # --- Notifications ---
-  # When to fire: :new_error (first occurrence of a fingerprint, default),
-  #               :critical  (any critical severity, throttled to 1/hour),
-  #               :all       (every occurrence, throttled to 1/hour per fingerprint)
+  # When to fire:
+  #   :new_error  — first occurrence of a fingerprint (default, no throttle)
+  #   :critical   — any critical-severity occurrence, throttled to 1/hour
+  #   :all        — every occurrence, throttled to 1/hour per fingerprint
+  #   :spike      — rate spike: N hits in M minutes (configure below)
   config.notify_on = [:new_error]
+  # config.notify_on = [:new_error, :spike]
+
+  # --- Spike detection (requires :spike in notify_on) ---
+  # Fire an alert when a single error hits >= spike_threshold times within
+  # spike_window_minutes. Re-alerts once per window after that.
+  # config.spike_threshold      = 10   # occurrences …
+  # config.spike_window_minutes = 5    # … in this many minutes
 
   # Slack incoming webhook (https://api.slack.com/messaging/webhooks)
   # config.slack_webhook_url = ENV['SLACK_WEBHOOK_URL']

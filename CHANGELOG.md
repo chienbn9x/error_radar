@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-07-03
+
+### Added
+- **Rate-based spike alerts**: add `:spike` to `config.notify_on` to fire a
+  notification when a single error exceeds `config.spike_threshold` (default: 10)
+  occurrences within `config.spike_window_minutes` (default: 5). Re-alerts once
+  per window after the first trigger.
+- **`ErrorRadar::SpikeDetector`**: detects spikes using two strategies — if
+  `track_occurrences` is enabled it queries `error_radar_occurrences` for an
+  exact cross-process count; otherwise falls back to an in-memory ring buffer
+  (per-process, resets on restart). Memory is capped at 1 000 timestamps per
+  fingerprint.
+- **`config.spike_threshold`** (default: 10) and **`config.spike_window_minutes`**
+  (default: 5) — tune the spike trigger.
+- **Spike throttle**: a spike alert re-fires at most once per window
+  (e.g. every 5 minutes), using a separate throttle key from `:critical`/`:all`.
+- **Event-aware notification channels**: all channels (Slack, Discord, email,
+  webhook) now receive the notification event (`:new_error`, `:spike`,
+  `:recurring`) and format accordingly:
+  - Slack: `:warning:` emoji, "danger" button colour, hit-count in title
+  - Discord: orange embed colour (`#ff6600`) for spikes
+  - Email subject: `[App] SPIKE ErrorClass: N hits in M min`
+  - Webhook payload: `event: "spike"` + `spike: { count:, window_minutes: }`
+
+### Changed
+- `Notifier.dispatch` now determines a single *event type* before dispatching,
+  preventing a log from matching both `:spike` and `:critical` simultaneously.
+- All channel `deliver` methods accept an optional `event` argument (default
+  `:recurring`) — backwards-compatible if called directly.
+
 ## [0.7.0] - 2026-07-03
 
 ### Added

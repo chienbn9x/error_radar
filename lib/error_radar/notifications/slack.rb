@@ -14,40 +14,47 @@ module ErrorRadar
         'info'     => ':large_blue_circle:'
       }.freeze
 
-      def self.deliver(log)
-        url     = URI(ErrorRadar.config.slack_webhook_url)
-        payload = build_payload(log)
+      def self.deliver(log, event = :recurring)
+        url = URI(ErrorRadar.config.slack_webhook_url)
 
         http              = Net::HTTP.new(url.host, url.port)
         http.use_ssl      = url.scheme == 'https'
         http.open_timeout = 5
         http.read_timeout = 5
 
-        req                  = Net::HTTP::Post.new(url)
-        req['Content-Type']  = 'application/json'
-        req.body             = payload.to_json
+        req                 = Net::HTTP::Post.new(url)
+        req['Content-Type'] = 'application/json'
+        req.body            = build_payload(log, event).to_json
 
         http.request(req)
       rescue StandardError => e
         ErrorRadar::Tracking.warn_internal("Slack notification failed: #{e.message}")
       end
 
-      def self.build_payload(log)
-        emoji   = SEV_EMOJI[log.severity] || ':white_circle:'
-        title   = "#{emoji} #{log.new_fingerprint? ? 'New error' : 'Critical error'}: *#{log.error_class}*"
-        url     = ErrorRadar::Notifier.error_url(log)
-        app     = ErrorRadar::Notifier.app_name
-        channel = ErrorRadar.config.slack_channel
+      def self.build_payload(log, event)
+        spike_data = log.instance_variable_get(:@spike_data)
+        app        = ErrorRadar::Notifier.app_name
+        link       = ErrorRadar::Notifier.error_url(log)
+        channel    = ErrorRadar.config.slack_channel
+
+        emoji, title = case event
+                       when :spike
+                         [':warning:', "Spike — #{spike_data[:count]} hits in #{spike_data[:window_minutes]} min: *#{log.error_class}*"]
+                       when :new_error
+                         [SEV_EMOJI[log.severity] || ':white_circle:', "New error: *#{log.error_class}*"]
+                       else
+                         [SEV_EMOJI[log.severity] || ':white_circle:', "#{log.severity.capitalize} error: *#{log.error_class}*"]
+                       end
 
         blocks = [
-          { type: 'section', text: { type: 'mrkdwn', text: "*[#{app}]* #{title}" } },
+          { type: 'section', text: { type: 'mrkdwn', text: "#{emoji} *[#{app}]* #{title}" } },
           {
             type: 'section',
             fields: [
               { type: 'mrkdwn', text: "*Source*\n#{(log.source || 'unknown').truncate(80)}" },
               { type: 'mrkdwn', text: "*Category*\n#{log.category}" },
               { type: 'mrkdwn', text: "*Severity*\n#{log.severity}" },
-              { type: 'mrkdwn', text: "*Occurrences*\n#{log.occurrences}" }
+              { type: 'mrkdwn', text: "*Total occurrences*\n#{log.occurrences}" }
             ]
           },
           {
@@ -56,13 +63,14 @@ module ErrorRadar
           }
         ]
 
-        if url
+        if link
           blocks << {
             type: 'actions',
             elements: [{
               type: 'button',
-              text: { type: 'plain_text', text: 'View in Error Radar', emoji: true },
-              url: url
+              text:  { type: 'plain_text', text: 'View in Error Radar', emoji: true },
+              url:   link,
+              style: event == :spike ? 'danger' : 'primary'
             }]
           }
         end

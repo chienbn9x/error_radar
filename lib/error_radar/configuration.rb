@@ -69,6 +69,13 @@ module ErrorRadar
       @error_callbacks << block
     end
 
+    # Spike detection ─────────────────────────────────────────────────────────
+    # Number of occurrences within spike_window_minutes that triggers a spike alert.
+    # Add :spike to notify_on to enable: config.notify_on = [:new_error, :spike]
+    attr_accessor :spike_threshold
+    # Rolling time window in minutes for counting occurrences.
+    attr_accessor :spike_window_minutes
+
     # Occurrences ─────────────────────────────────────────────────────────────
     # When true, each individual error hit is stored in error_radar_occurrences.
     # Requires running: bin/rails generate error_radar:upgrade_v060 && bin/rails db:migrate
@@ -155,6 +162,9 @@ module ErrorRadar
       @app_name             = nil
       @app_host             = nil
       @error_callbacks      = []
+
+      @spike_threshold     = 10
+      @spike_window_minutes = 5
 
       @track_occurrences        = false
       @max_occurrences_per_error = 200
