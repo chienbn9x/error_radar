@@ -83,6 +83,25 @@ ErrorRadar.configure do |config|
   # Requires running: bin/rails generate error_radar:upgrade_v050 && bin/rails db:migrate
   # config.github_token = ENV['GITHUB_TOKEN']   # PAT with repo scope
   # config.github_repo  = 'myorg/myapp'         # "owner/repo" format
+
+  # --- Performance & Async Capture ---
+  # Write ErrorLog records via ActiveJob so exceptions don't block the request.
+  # Requires ActiveJob + a queue adapter (Sidekiq, Solid Queue, etc.).
+  # Falls back to synchronous capture if ActiveJob is unavailable.
+  # config.async_capture     = true
+  # config.capture_job_queue = :default   # queue name for CaptureJob
+
+  # --- Retention / Cleanup ---
+  # Auto-prune old resolved/ignored records to keep the table lean.
+  # Run `rake error_radar:cleanup` from a cron job or Heroku Scheduler.
+  # config.retention_days = 90    # delete resolved/ignored records older than 90 days
+  # config.max_records    = 50000 # hard cap; oldest resolved/ignored purged first
+  #
+  # Rake tasks available:
+  #   rake error_radar:cleanup              # apply retention_days + max_records
+  #   rake error_radar:cleanup:dry_run      # preview without deleting
+  #   rake error_radar:cleanup:older_than   # DAYS=30 rake error_radar:cleanup:older_than
+  #   rake error_radar:stats                # print table summary
 end
 
 # ActiveJob is now captured automatically via install_active_job = true above.

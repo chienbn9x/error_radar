@@ -69,6 +69,19 @@ module ErrorRadar
       @error_callbacks << block
     end
 
+    # Performance ─────────────────────────────────────────────────────────────
+    # When true, ErrorLog.record is enqueued via ActiveJob (non-blocking).
+    # Requires ActiveJob to be configured. Falls back to sync if ActiveJob is absent.
+    attr_accessor :async_capture
+    # Queue name for CaptureJob when async_capture is enabled.
+    attr_accessor :capture_job_queue
+
+    # Retention ───────────────────────────────────────────────────────────────
+    # Auto-delete resolved/ignored records older than this many days (nil = keep forever).
+    attr_accessor :retention_days
+    # Keep at most this many total records; deletes oldest resolved/ignored first (nil = unlimited).
+    attr_accessor :max_records
+
     # REST API ────────────────────────────────────────────────────────────────
     # Bearer token for /api/* endpoints. nil = unauthenticated (not for prod).
     attr_accessor :api_token
@@ -134,6 +147,11 @@ module ErrorRadar
       @app_name             = nil
       @app_host             = nil
       @error_callbacks      = []
+
+      @async_capture     = false
+      @capture_job_queue = :default
+      @retention_days    = nil
+      @max_records       = nil
 
       @api_token    = nil
       @github_token = nil

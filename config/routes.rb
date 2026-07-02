@@ -16,4 +16,6 @@ ErrorRadar::Engine.routes.draw do
   get    'errors/:id',              to: 'errors#show',                as: :error
   patch  'errors/:id/status',       to: 'errors#update_status',       as: :error_status
   delete 'errors/:id',              to: 'errors#destroy'
+
+  post 'maintenance/purge', to: 'dashboard#purge', as: :maintenance_purge
 end

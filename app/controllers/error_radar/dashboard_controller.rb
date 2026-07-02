@@ -10,12 +10,17 @@ module ErrorRadar
     SEVERITY_ORDER = { 'critical' => 0, 'error' => 1, 'warning' => 2, 'info' => 3 }.freeze
 
     def index
-      @total          = ErrorLog.count
-      @open_count     = ErrorLog.status_open.count
-      @in_progress    = ErrorLog.status_in_progress.count
-      @resolved_count = ErrorLog.status_resolved.count
-      @ignored_count  = ErrorLog.status_ignored.count
+      counts_by_status = ErrorLog.group(:status).count
+      # statuses returns {"open"=>0, "in_progress"=>1, "resolved"=>2, "ignored"=>3}
+      inv = ErrorLog.statuses.invert
+      @open_count     = counts_by_status[ErrorLog.statuses['open']] || 0
+      @in_progress    = counts_by_status[ErrorLog.statuses['in_progress']] || 0
+      @resolved_count = counts_by_status[ErrorLog.statuses['resolved']] || 0
+      @ignored_count  = counts_by_status[ErrorLog.statuses['ignored']] || 0
+      @total          = counts_by_status.values.sum
       @unresolved     = @open_count + @in_progress
+
+      @oldest_record  = ErrorLog.minimum(:first_seen_at)
 
       @by_category = ErrorLog.unresolved.group(:category).count
       @by_severity = ErrorLog.unresolved.group(:severity).count
@@ -44,6 +49,28 @@ module ErrorRadar
       end
 
       @external_links = build_external_links
+    end
+
+    def purge
+      days    = params[:days].presence&.to_i
+      dry_run = params[:dry_run] == '1'
+
+      result = ErrorRadar::Cleanup.run(
+        older_than_days: (days if days&.positive?),
+        dry_run: dry_run
+      )
+
+      respond_to do |format|
+        format.json { render json: result }
+        format.html do
+          msg = if dry_run
+                  "Dry run: would delete #{result[:deleted]} record(s)."
+                else
+                  "Purged #{result[:deleted]} record(s)."
+                end
+          redirect_to root_path, notice: msg
+        end
+      end
     end
 
     private

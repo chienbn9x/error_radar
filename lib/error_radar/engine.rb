@@ -52,5 +52,9 @@ module ErrorRadar
         ErrorRadar::Integrations::RailsAdmin.install!
       end
     end
+
+    rake_tasks do
+      load File.expand_path('../tasks/error_radar.rake', __dir__)
+    end
   end
 end

@@ -27,6 +27,17 @@ module ErrorRadar
         attrs.merge!(extra.compact) if extra.is_a?(Hash)
       end
 
+      if ErrorRadar.config.async_capture && defined?(::ActiveJob::Base)
+        require 'error_radar/capture_job'
+        job_attrs = attrs.merge(
+          category: attrs[:category].to_s,
+          severity: attrs[:severity].to_s,
+          context:  safe_json(attrs[:context])
+        )
+        ErrorRadar::CaptureJob.perform_later(job_attrs.to_json)
+        return nil
+      end
+
       log = ErrorRadar::ErrorLog.record(**attrs)
       ErrorRadar::Notifier.dispatch(log) if log
       log
@@ -110,6 +121,12 @@ module ErrorRadar
     rescue StandardError => e
       warn_internal("custom rule failed: #{e.class}: #{e.message}")
       nil
+    end
+
+    def safe_json(value)
+      JSON.parse(value.to_json)
+    rescue StandardError
+      {}
     end
 
     def warn_internal(message)

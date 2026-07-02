@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-07-03
+
+### Added
+- **Async capture** via ActiveJob: set `config.async_capture = true` to enqueue
+  error writes through `CaptureJob` so exceptions don't block the request/job
+  thread. Falls back to synchronous capture if ActiveJob is unavailable.
+  Configure the queue with `config.capture_job_queue` (default `:default`).
+- **Age-based retention**: set `config.retention_days` to automatically prune
+  resolved/ignored records older than N days.
+- **Count-based retention**: set `config.max_records` to cap the table size;
+  oldest resolved/ignored records are deleted first when the limit is exceeded.
+- **`ErrorRadar::Cleanup.run`**: underlying cleanup logic, callable from Ruby or
+  Rake. Supports `older_than_days:` override and `dry_run: true` for previewing
+  without deleting.
+- **Rake tasks**:
+  - `rake error_radar:cleanup` — apply `retention_days` + `max_records`
+  - `rake error_radar:cleanup:dry_run` — preview without deleting
+  - `rake error_radar:cleanup:older_than` — one-off: `DAYS=30 rake …`
+  - `rake error_radar:stats` — print table summary (total, by status, oldest)
+- **Dashboard maintenance panel**: data summary (total / purgeable / open),
+  oldest record date, and an inline "Purge / Dry run" form with adjustable days.
+- **`POST /maintenance/purge`** endpoint: called by the dashboard's Purge button;
+  accepts `days` and `dry_run` params, returns JSON `{ deleted:, dry_run: }`.
+- **Dashboard stat query optimization**: 5 separate COUNT queries replaced by one
+  `group(:status).count` query.
+
+### Notes
+- `async_capture` is `false` by default to avoid surprising behaviour for apps
+  that do not have a queue adapter configured.
+- Cleanup only touches `resolved` and `ignored` records — open/in-progress
+  records are never auto-deleted.
+
 ## [0.5.0] - 2026-07-03
 
 ### Added
