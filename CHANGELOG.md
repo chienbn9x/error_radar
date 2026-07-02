@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-07-03
+
+### Added
+- **REST API** at `/api/*` for external integrations (CI/CD, dashboards, scripts):
+  - `GET  /api/errors` — paginated list with the same filters as the web UI
+    (`status`, `severity`, `category`, `q`, `from`, `to`, `sort`, `order`, `page`)
+  - `GET  /api/errors/:id` — full detail including context, backtrace, and
+    `github_issue_url` (if column is present)
+  - `PATCH /api/errors/:id` — update status; resolve accepts optional `note`
+    and `resolved_by` params
+  - `GET  /api/stats` — summary counts by status, severity, and category
+- **Bearer-token API auth**: set `config.api_token` to protect all `/api/*`
+  endpoints with `Authorization: Bearer <token>`.
+- **GitHub Issue integration**: "Create GitHub Issue" button on the error detail
+  page opens a pre-filled issue with error class, source, message, backtrace,
+  and a deep-link back to Error Radar. Requires `config.github_token` and
+  `config.github_repo`.
+- **`github_issue_url` column**: stored on the error row so the button becomes
+  "View GitHub Issue" once an issue exists. Requires running the upgrade
+  migration: `bin/rails generate error_radar:upgrade_v050 && bin/rails db:migrate`.
+- **`error_radar:upgrade_v050` generator**: generates the migration that adds
+  `github_issue_url` to `error_radar_error_logs`.
+
+### Notes
+- The GitHub column is optional — the integration is gracefully degraded when the
+  migration has not been run (button appears but URL is not persisted).
+- The API controllers live in `ErrorRadar::Api::*` to avoid polluting the host
+  app's controller namespace.
+
 ## [0.4.0] - 2026-07-03
 
 ### Added

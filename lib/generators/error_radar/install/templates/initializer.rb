@@ -72,6 +72,17 @@ ErrorRadar.configure do |config|
   # config.expected_servers = [
   #   { key: 'web', name: 'Web', tag: 'sidekiq_web', host: 'web', queue_hint: 'low' }
   # ]
+
+  # --- REST API ---
+  # Protect /api/* endpoints with a Bearer token.
+  # config.api_token = ENV['ERROR_RADAR_API_TOKEN']
+  # curl -H "Authorization: Bearer $TOKEN" https://myapp.com/error_radar/api/stats
+
+  # --- GitHub Integration ---
+  # Creates GitHub issues directly from the error detail page.
+  # Requires running: bin/rails generate error_radar:upgrade_v050 && bin/rails db:migrate
+  # config.github_token = ENV['GITHUB_TOKEN']   # PAT with repo scope
+  # config.github_repo  = 'myorg/myapp'         # "owner/repo" format
 end
 
 # ActiveJob is now captured automatically via install_active_job = true above.

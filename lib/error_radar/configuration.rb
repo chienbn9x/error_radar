@@ -69,6 +69,16 @@ module ErrorRadar
       @error_callbacks << block
     end
 
+    # REST API ────────────────────────────────────────────────────────────────
+    # Bearer token for /api/* endpoints. nil = unauthenticated (not for prod).
+    attr_accessor :api_token
+
+    # GitHub integration ──────────────────────────────────────────────────────
+    # Personal access token with repo scope.
+    attr_accessor :github_token
+    # "owner/repo" string, e.g. "myorg/myapp".
+    attr_accessor :github_repo
+
     # Custom classification rules. Each is a callable `->(exception) { :category | nil }`.
     # The first rule that returns a non-nil category wins; built-in rules run after.
     attr_accessor :categorizers
@@ -124,6 +134,10 @@ module ErrorRadar
       @app_name             = nil
       @app_host             = nil
       @error_callbacks      = []
+
+      @api_token    = nil
+      @github_token = nil
+      @github_repo  = nil
       @categorizers       = []
       @detail_extractors  = []
       @expected_servers   = []

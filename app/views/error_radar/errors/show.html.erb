@@ -104,11 +104,37 @@
   </div>
 </div>
 
+<%# ── GitHub Issue ── %>
+<% if ErrorRadar.config.github_token.present? && ErrorRadar.config.github_repo.present? %>
+  <div class="panel" style="margin-top:16px">
+    <h2>GitHub</h2>
+    <% has_col = @error.class.column_names.include?('github_issue_url') %>
+    <% if has_col && @error.github_issue_url.present? %>
+      <a href="<%= @error.github_issue_url %>" target="_blank" rel="noopener"
+         class="er-btn" style="background:#24292e;display:inline-block;text-decoration:none">
+        &#9651; View GitHub Issue
+      </a>
+    <% else %>
+      <button id="github-btn" class="er-btn" style="background:#24292e" onclick="createGithubIssue()">
+        &#9651; Create GitHub Issue
+      </button>
+      <span id="github-status" style="font-size:13px;color:#6b7280;margin-left:10px"></span>
+      <% unless has_col %>
+        <p style="font-size:12px;color:#9ca3af;margin:10px 0 0">
+          Run <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">bin/rails generate error_radar:upgrade_v050 &amp;&amp; bin/rails db:migrate</code>
+          to enable issue tracking.
+        </p>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>
+
 <script>
 (function () {
   var CSRF       = document.querySelector('meta[name="csrf-token"]').content;
   var STATUS_URL = '<%= error_status_path(@error) %>';
   var DELETE_URL = '<%= error_path(@error) %>';
+  var GITHUB_URL = '<%= error_github_issue_path(@error) %>';
 
   document.querySelectorAll('.status-btn').forEach(function (btn) {
     btn.addEventListener('click', function () { changeStatus(btn.dataset.status, null); });
@@ -151,6 +177,35 @@
     })
     .then(function (r) {
       if (r.ok) { window.location.href = '<%= errors_path %>'; }
+    });
+  };
+
+  window.createGithubIssue = function () {
+    var btn    = document.getElementById('github-btn');
+    var status = document.getElementById('github-status');
+    if (!btn) return;
+    btn.disabled    = true;
+    status.textContent = 'Creating issue…';
+
+    fetch(GITHUB_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok) {
+        status.innerHTML = '✓ Created: <a href="' + d.url + '" target="_blank">#' + d.number + '</a>';
+        btn.style.display = 'none';
+        showToast('GitHub issue #' + d.number + ' created', true);
+      } else {
+        status.textContent = 'Error: ' + (d.error || 'failed');
+        btn.disabled = false;
+        showToast(d.error || 'GitHub error', false);
+      }
+    })
+    .catch(function () {
+      status.textContent = 'Network error';
+      btn.disabled = false;
     });
   };
 

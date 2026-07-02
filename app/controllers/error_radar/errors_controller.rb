@@ -3,7 +3,7 @@
 module ErrorRadar
   class ErrorsController < ApplicationController
     before_action :authenticate_request!
-    before_action :set_error, only: %i[show update_status destroy]
+    before_action :set_error, only: %i[show update_status destroy create_github_issue]
 
     rescue_from ActiveRecord::RecordNotFound do
       redirect_to errors_path, alert: 'Error not found.'
@@ -42,6 +42,35 @@ module ErrorRadar
     def destroy
       @error.destroy!
       render json: { ok: true }
+    end
+
+    def create_github_issue
+      unless github_configured?
+        return render json: { ok: false, error: 'GitHub not configured (set config.github_token and config.github_repo)' },
+                      status: :unprocessable_entity
+      end
+
+      if ErrorLog.column_names.include?('github_issue_url') && @error.github_issue_url.present?
+        return render json: { ok: false, error: 'Issue already created', url: @error.github_issue_url },
+                      status: :unprocessable_entity
+      end
+
+      require 'error_radar/integrations/github'
+      result = ErrorRadar::Integrations::Github.create_issue(
+        @error,
+        token: ErrorRadar.config.github_token,
+        repo:  ErrorRadar.config.github_repo
+      )
+
+      if result['html_url']
+        @error.update!(github_issue_url: result['html_url']) if ErrorLog.column_names.include?('github_issue_url')
+        render json: { ok: true, url: result['html_url'], number: result['number'] }
+      else
+        render json: { ok: false, error: result['message'] || 'GitHub API error' },
+               status: :unprocessable_entity
+      end
+    rescue StandardError => e
+      render json: { ok: false, error: e.message }, status: :internal_server_error
     end
 
     def bulk
@@ -113,6 +142,10 @@ module ErrorRadar
         ErrorLog.where(id: ids).delete_all
       end
       ids.size
+    end
+
+    def github_configured?
+      ErrorRadar.config.github_token.present? && ErrorRadar.config.github_repo.present?
     end
 
     def active_filter_params

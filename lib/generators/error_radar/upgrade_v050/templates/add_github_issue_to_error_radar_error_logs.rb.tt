@@ -1,0 +1,7 @@
+# frozen_string_literal: true
+
+class AddGithubIssueToErrorRadarErrorLogs < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    add_column :error_radar_error_logs, :github_issue_url, :string, limit: 500
+  end
+end
