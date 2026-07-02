@@ -7,10 +7,10 @@ module ErrorRadar
       def show
         render json: {
           total:       ErrorLog.count,
-          open:        ErrorLog.status_open.count,
-          in_progress: ErrorLog.status_in_progress.count,
-          resolved:    ErrorLog.status_resolved.count,
-          ignored:     ErrorLog.status_ignored.count,
+          open:        ErrorLog.where(status: ErrorLog.statuses[:open]).count,
+          in_progress: ErrorLog.where(status: ErrorLog.statuses[:in_progress]).count,
+          resolved:    ErrorLog.where(status: ErrorLog.statuses[:resolved]).count,
+          ignored:     ErrorLog.where(status: ErrorLog.statuses[:ignored]).count,
           unresolved:  ErrorLog.unresolved.count,
           by_severity: ErrorLog.group(:severity).count,
           by_category: ErrorLog.group(:category).count,

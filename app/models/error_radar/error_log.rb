@@ -10,11 +10,15 @@ module ErrorRadar
     # registers via ErrorRadar.config). Read at class-load, which happens after
     # the host's initializer has run `ErrorRadar.configure`, so custom
     # categories are already merged in. See ErrorRadar::Configuration.
-    enum category: ErrorRadar.config.categories, _prefix: :category
+    #
+    # _scopes: false avoids the class-method conflict-detection path in AR 7.1
+    # (detect_enum_conflict! → dangerous_class_method? → respond_to_missing?)
+    # that raises SystemStackError when the table does not yet exist.
+    enum category: ErrorRadar.config.categories, _prefix: :category, _scopes: false
 
-    enum severity: { info: 0, warning: 1, error: 2, critical: 3 }, _prefix: :severity
+    enum severity: { info: 0, warning: 1, error: 2, critical: 3 }, _prefix: :severity, _scopes: false
 
-    enum status: { open: 0, in_progress: 1, resolved: 2, ignored: 3 }, _prefix: :status
+    enum status: { open: 0, in_progress: 1, resolved: 2, ignored: 3 }, _prefix: :status, _scopes: false
 
     has_many :error_occurrences, class_name: 'ErrorRadar::ErrorOccurrence',
                                 foreign_key: :error_log_id,

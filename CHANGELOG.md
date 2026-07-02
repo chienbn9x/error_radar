@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2026-07-03
+
+### Fixed
+- **Rake integration: `SystemStackError` / infinite recursion on `rake db:migrate`**
+  Three compounding issues caused deployment to fail:
+
+  1. **Double-patching infinite loop** — if the host app's `lib/tasks/error_radar.rake`
+     contained an older version of the Rake integration (using `alias_method`), the
+     gem's own `alias_method :error_radar_original_execute, :execute` in v1.0.3
+     overwrote the alias so both copies called each other indefinitely. Fixed by
+     switching to `prepend` with an `ancestors.include?` idempotency guard — `prepend`
+     does not touch any existing aliases and composes cleanly with prior patches.
+
+  2. **Recursive capture** — if `ErrorRadar.capture` itself raised (e.g. because the
+     model wasn't loaded yet), the exception propagated back into the rescue block and
+     triggered `capture` again. Fixed with a thread-local `error_radar_rake_capturing`
+     guard and by never trying to capture `SystemStackError` / `SignalException` /
+     `NoMemoryError` (unrecoverable errors).
+
+  3. **AR 7.1 `respond_to_missing?` recursion** — ActiveRecord 7.1's
+     `detect_enum_conflict!` calls `dangerous_class_method?` → `Base.respond_to?`
+     → `respond_to_missing?` which can recurse infinitely when the table does not
+     exist yet (first deploy). Added `_scopes: false` to all three enum declarations
+     so the class-method conflict-detection path is skipped entirely. Also changed
+     `rescue StandardError` → `rescue Exception` in `Tracking.capture` so
+     `SystemStackError` is always absorbed and never escapes `capture`.
+
+- **`Api::StatsController` used enum-generated scopes** (`ErrorLog.status_open`,
+  etc.) which no longer exist with `_scopes: false`. Replaced with explicit
+  `where(status: ErrorLog.statuses[:open])` calls.
+
+**If you have a `lib/tasks/error_radar.rake` file in your host app** (not inside
+the gem), delete it — the engine loads the rake tasks automatically from the gem,
+and keeping a copy in the host app causes tasks to be defined twice.
+
 ## [1.0.3] - 2026-07-03
 
 ### Fixed

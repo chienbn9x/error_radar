@@ -41,7 +41,7 @@ module ErrorRadar
       log = ErrorRadar::ErrorLog.record(**attrs)
       ErrorRadar::Notifier.dispatch(log) if log
       log
-    rescue StandardError => e
+    rescue Exception => e # rubocop:disable Lint/RescueException
       warn_internal("capture failed: #{e.class}: #{e.message}")
       nil
     end
