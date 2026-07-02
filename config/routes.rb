@@ -10,12 +10,15 @@ ErrorRadar::Engine.routes.draw do
   end
 
   # Web UI
-  get    'errors',                  to: 'errors#index',               as: :errors
-  post   'errors/bulk',             to: 'errors#bulk',                as: :errors_bulk
-  post   'errors/:id/github_issue', to: 'errors#create_github_issue', as: :error_github_issue
-  get    'errors/:id',              to: 'errors#show',                as: :error
-  patch  'errors/:id/status',       to: 'errors#update_status',       as: :error_status
-  delete 'errors/:id',              to: 'errors#destroy'
+  get    'errors',                           to: 'errors#index',               as: :errors
+  post   'errors/bulk',                      to: 'errors#bulk',                as: :errors_bulk
+  post   'errors/:id/github_issue',          to: 'errors#create_github_issue', as: :error_github_issue
+  get    'errors/:id',                       to: 'errors#show',                as: :error
+  patch  'errors/:id/status',                to: 'errors#update_status',       as: :error_status
+  patch  'errors/:id/assign',                to: 'errors#assign',              as: :error_assign
+  post   'errors/:id/comments',              to: 'errors#comment',             as: :error_comments
+  delete 'errors/:id/comments/:cid',         to: 'errors#destroy_comment',     as: :error_comment
+  delete 'errors/:id',                       to: 'errors#destroy'
 
   post 'maintenance/purge', to: 'dashboard#purge', as: :maintenance_purge
 end

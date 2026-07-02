@@ -93,6 +93,11 @@ ErrorRadar.configure do |config|
   # config.github_token = ENV['GITHUB_TOKEN']   # PAT with repo scope
   # config.github_repo  = 'myorg/myapp'         # "owner/repo" format
 
+  # --- Assignment & Comments (v1.0.0) ---
+  # Requires running: bin/rails generate error_radar:upgrade_v100 && bin/rails db:migrate
+  # Adds assigned_to column, error_radar_comments and error_radar_activities tables.
+  # No config needed — use the UI to assign errors and add comments.
+
   # --- Digest Email ---
   # Sends a periodic summary of errors via email. Requires ActionMailer.
   # Run via cron / Heroku Scheduler:

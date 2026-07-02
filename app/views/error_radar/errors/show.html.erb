@@ -220,6 +220,113 @@
   </div>
 <% end %>
 
+<%# ── Assignment, Comments & Activity ── %>
+<% if @has_v100 %>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+
+    <%# Assignment %>
+    <div class="panel" id="assignment-panel">
+      <h2>Assignment</h2>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="assignee-display" style="font-size:14px;color:#374151">
+          <% if @error.assigned_to.present? %>
+            Assigned to <strong><%= @error.assigned_to %></strong>
+          <% else %>
+            <span style="color:#9ca3af">Unassigned</span>
+          <% end %>
+        </div>
+        <button onclick="toggleAssignForm()"
+                style="padding:4px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;cursor:pointer">
+          Change
+        </button>
+      </div>
+      <div id="assign-form" style="display:none;margin-top:10px">
+        <input id="assignee-input" type="text" value="<%= @error.assigned_to %>"
+               placeholder="Name or email…"
+               style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:200px">
+        <button onclick="doAssign()"
+                style="margin-left:6px;padding:6px 14px;background:#2563eb;color:#fff;border:0;border-radius:6px;font-size:13px;cursor:pointer">
+          Save
+        </button>
+        <button onclick="toggleAssignForm()"
+                style="margin-left:4px;padding:6px 10px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <%# Activity timeline %>
+    <div class="panel" id="activity-panel">
+      <h2>Activity <span style="font-size:12px;font-weight:400;color:#9ca3af">(<%= @activities.size %> events)</span></h2>
+      <% if @activities.empty? %>
+        <p style="font-size:13px;color:#9ca3af;margin:0">No activity yet.</p>
+      <% else %>
+        <div style="max-height:280px;overflow-y:auto">
+          <% @activities.each do |act| %>
+            <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:12px">
+              <span style="font-size:14px;min-width:20px;text-align:center"><%= act.icon %></span>
+              <div style="flex:1">
+                <span style="font-weight:600;color:#374151"><%= act.action %></span>
+                <% if act.detail.present? %>
+                  <span style="color:#6b7280"> — <%= act.detail.truncate(80) %></span>
+                <% end %>
+                <div style="color:#9ca3af;font-size:11px;margin-top:1px">
+                  <% if act.actor.present? %><%= act.actor %> · <% end %>
+                  <%= act.created_at&.strftime('%Y-%m-%d %H:%M') %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <%# Comments %>
+  <div class="panel" style="margin-top:16px" id="comments-panel">
+    <h2>Comments <span style="font-size:12px;font-weight:400;color:#9ca3af">(<%= @comments.size %>)</span></h2>
+
+    <div id="comments-list">
+      <% @comments.each do |cmt| %>
+        <div class="er-comment" id="comment-<%= cmt.id %>"
+             style="border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:600;color:#374151"><%= cmt.author.presence || 'Anonymous' %></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-size:11px;color:#9ca3af"><%= cmt.created_at&.strftime('%Y-%m-%d %H:%M') %></span>
+              <button onclick="deleteComment(<%= cmt.id %>)"
+                      style="font-size:11px;color:#dc3545;background:none;border:0;cursor:pointer;padding:0">✕</button>
+            </div>
+          </div>
+          <div style="font-size:13px;color:#1f2937;white-space:pre-wrap"><%= cmt.body %></div>
+        </div>
+      <% end %>
+    </div>
+
+    <div style="margin-top:12px">
+      <textarea id="comment-body" rows="3" placeholder="Add a comment…"
+                style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>
+      <div style="margin-top:6px;display:flex;justify-content:flex-end">
+        <button onclick="submitComment()"
+                style="padding:7px 18px;background:#2563eb;color:#fff;border:0;border-radius:8px;font-size:13px;cursor:pointer">
+          Add comment
+        </button>
+      </div>
+    </div>
+  </div>
+
+<% else %>
+  <div class="panel" style="margin-top:16px">
+    <h2>Assignment, Comments &amp; Activity (v1.0.0)</h2>
+    <p style="font-size:13px;color:#6b7280;margin:0">
+      Run the upgrade migration to enable these features:
+    </p>
+    <code style="display:block;margin-top:8px;background:#f3f4f6;padding:10px 14px;border-radius:8px;font-size:12px">
+      bin/rails generate error_radar:upgrade_v100 &amp;&amp; bin/rails db:migrate
+    </code>
+  </div>
+<% end %>
+
 <script>
   window.toggleOcc = function (id) {
     var el = document.getElementById(id);
@@ -275,6 +382,123 @@
       if (r.ok) { window.location.href = '<%= errors_path %>'; }
     });
   };
+
+  // ── Assignment ──
+  var ASSIGN_URL  = '<%= respond_to?(:error_assign_path) ? error_assign_path(@error) : "" %>';
+  var COMMENT_URL = '<%= respond_to?(:error_comments_path) ? error_comments_path(@error) : "" %>';
+
+  window.toggleAssignForm = function () {
+    var f = document.getElementById('assign-form');
+    if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  };
+
+  window.doAssign = function () {
+    var val = document.getElementById('assignee-input').value.trim();
+    fetch(ASSIGN_URL, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify({ assigned_to: val })
+    }).then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) {
+          var disp = document.getElementById('assignee-display');
+          disp.innerHTML = d.assigned_to
+            ? 'Assigned to <strong>' + d.assigned_to + '</strong>'
+            : '<span style="color:#9ca3af">Unassigned</span>';
+          toggleAssignForm();
+          appendActivity({ icon: '→', action: d.assigned_to ? 'assigned → ' + d.assigned_to : 'unassigned' });
+          showToast(d.assigned_to ? 'Assigned to ' + d.assigned_to : 'Unassigned', true);
+        } else {
+          showToast(d.error || 'Failed', false);
+        }
+      });
+  };
+
+  // ── Comments ──
+  window.submitComment = function () {
+    var body = document.getElementById('comment-body').value.trim();
+    if (!body) { showToast('Comment cannot be blank', false); return; }
+
+    fetch(COMMENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify({ body: body })
+    }).then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) {
+          document.getElementById('comment-body').value = '';
+          var list = document.getElementById('comments-list');
+          list.insertAdjacentHTML('beforeend',
+            '<div class="er-comment" id="comment-' + d.id + '" style="border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:10px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
+            '<div style="font-size:12px;font-weight:600;color:#374151">' + (d.author || 'Anonymous') + '</div>' +
+            '<div style="display:flex;gap:8px;align-items:center">' +
+            '<span style="font-size:11px;color:#9ca3af">' + d.created_at + '</span>' +
+            '<button onclick="deleteComment(' + d.id + ')" style="font-size:11px;color:#dc3545;background:none;border:0;cursor:pointer;padding:0">✕</button>' +
+            '</div></div>' +
+            '<div style="font-size:13px;color:#1f2937;white-space:pre-wrap">' + escHtml(d.body) + '</div>' +
+            '</div>'
+          );
+          appendActivity({ icon: '💬', action: 'commented', detail: d.body.substring(0, 80) });
+          updateCommentCount(1);
+          showToast('Comment added', true);
+        } else {
+          showToast(d.error || 'Failed', false);
+        }
+      });
+  };
+
+  window.deleteComment = function (id) {
+    if (!confirm('Delete this comment?')) return;
+    fetch('<%= respond_to?(:error_comment_path) ? error_path(@error) : "" %>/comments/' + id, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': CSRF }
+    }).then(function (r) {
+      if (r.ok) {
+        var el = document.getElementById('comment-' + id);
+        if (el) el.remove();
+        appendActivity({ icon: '🗑', action: 'comment_deleted' });
+        updateCommentCount(-1);
+        showToast('Comment deleted', true);
+      }
+    });
+  };
+
+  function updateCommentCount(delta) {
+    var h2 = document.querySelector('#comments-panel h2');
+    if (!h2) return;
+    var match = h2.textContent.match(/(\d+)/);
+    if (match) {
+      var n = parseInt(match[1], 10) + delta;
+      h2.innerHTML = 'Comments <span style="font-size:12px;font-weight:400;color:#9ca3af">(' + n + ')</span>';
+    }
+  }
+
+  function appendActivity(act) {
+    var list = document.querySelector('#activity-panel [style*="max-height"]');
+    var empty = document.querySelector('#activity-panel p');
+    if (empty) { empty.remove(); }
+    if (!list) {
+      var panel = document.querySelector('#activity-panel');
+      if (!panel) return;
+      list = document.createElement('div');
+      list.style.cssText = 'max-height:280px;overflow-y:auto';
+      panel.appendChild(list);
+    }
+    var now = new Date();
+    var ts = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    list.insertAdjacentHTML('afterbegin',
+      '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:12px">' +
+      '<span style="font-size:14px;min-width:20px;text-align:center">' + (act.icon || '·') + '</span>' +
+      '<div style="flex:1"><span style="font-weight:600;color:#374151">' + act.action + '</span>' +
+      (act.detail ? '<span style="color:#6b7280"> — ' + escHtml(act.detail) + '</span>' : '') +
+      '<div style="color:#9ca3af;font-size:11px;margin-top:1px">' + ts + '</div></div></div>'
+    );
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
   window.createGithubIssue = function () {
     var btn    = document.getElementById('github-btn');

@@ -20,6 +20,14 @@ module ErrorRadar
                            foreign_key: :error_log_id,
                            dependent: :delete_all
 
+    has_many :comments,   class_name: 'ErrorRadar::ErrorComment',
+                          foreign_key: :error_log_id,
+                          dependent: :delete_all
+
+    has_many :activities, class_name: 'ErrorRadar::ErrorActivity',
+                          foreign_key: :error_log_id,
+                          dependent: :delete_all
+
     validates :fingerprint, presence: true, uniqueness: true
     validates :first_seen_at, :last_seen_at, presence: true
 

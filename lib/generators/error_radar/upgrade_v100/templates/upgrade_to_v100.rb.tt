@@ -1,0 +1,31 @@
+# frozen_string_literal: true
+
+class UpgradeErrorRadarToV100 < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    # Assignment field on the error log
+    add_column :error_radar_error_logs, :assigned_to, :string
+
+    # Comment thread per error
+    create_table :error_radar_comments do |t|
+      t.references :error_log, null: false,
+                               foreign_key: { to_table: :error_radar_error_logs }
+      t.string     :author
+      t.text       :body, null: false
+      t.timestamps
+    end
+
+    # Activity / audit log per error
+    create_table :error_radar_activities do |t|
+      t.references :error_log, null: false,
+                               foreign_key: { to_table: :error_radar_error_logs },
+                               index: false
+      t.string     :actor              # who performed the action
+      t.string     :action, null: false # "resolved", "assigned → alice", "commented", ...
+      t.string     :detail, limit: 500  # extra context (note preview, old→new value)
+      t.timestamps
+    end
+
+    add_index :error_radar_activities, %i[error_log_id created_at],
+              name: 'idx_er_activities_log_time'
+  end
+end

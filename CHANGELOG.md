@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-07-03
+
+### Added
+- **Error assignment**: assign any error to a team member from the detail page.
+  Stored in the new `assigned_to` column on `error_radar_error_logs`.
+- **Comment thread**: add, view, and delete comments on each error. Comments
+  are stored in the new `error_radar_comments` table with `author` and `body`.
+- **Activity log**: every status change, assignment, and comment is recorded in
+  `error_radar_activities` (columns: `actor`, `action`, `detail`, `created_at`).
+  The timeline is shown on the error detail page (last 50 events).
+- **`error_radar:upgrade_v100` generator**: one migration that adds `assigned_to`
+  to `error_radar_error_logs` and creates both `error_radar_comments` and
+  `error_radar_activities` tables.
+- **`PATCH /errors/:id/assign`**: JSON endpoint to assign/unassign an error.
+- **`POST /errors/:id/comments`**: JSON endpoint to add a comment.
+- **`DELETE /errors/:id/comments/:cid`**: JSON endpoint to remove a comment.
+- **`ErrorRadar::ErrorActivity`** model with `icon` helper mapping action names
+  to display glyphs (✓ resolved, ↩ reopened, 💬 commented, → assigned, …).
+- **`ErrorRadar::ErrorComment`** model with `chronological` scope.
+- All new features are **backward-compatible** — existing apps without the
+  migration see a panel with the migration command to run.
+
+### Notes
+- Activity logging is best-effort: if the activities table does not exist yet,
+  the action still succeeds and the log write is silently skipped.
+- The `current_user` proc (`config.current_user`) is used as the default actor;
+  clients can also pass `author` in the comment POST body.
+
 ## [0.9.0] - 2026-07-03
 
 ### Added

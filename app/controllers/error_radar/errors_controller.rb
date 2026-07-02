@@ -3,7 +3,7 @@
 module ErrorRadar
   class ErrorsController < ApplicationController
     before_action :authenticate_request!
-    before_action :set_error, only: %i[show update_status destroy create_github_issue]
+    before_action :set_error, only: %i[show update_status destroy create_github_issue assign comment destroy_comment]
 
     rescue_from ActiveRecord::RecordNotFound do
       redirect_to errors_path, alert: 'Error not found.'
@@ -24,20 +24,81 @@ module ErrorRadar
 
     def show
       @occurrences = []
-      return unless ErrorRadar.config.track_occurrences
-
-      begin
-        @occ_page       = [params[:occ_page].to_i, 1].max
-        occ_per_page    = 20
-        @occ_total      = @error.occurrences.count
-        @occ_total_pages = [(@occ_total.to_f / occ_per_page).ceil, 1].max
-        @occ_page       = [@occ_page, @occ_total_pages].min
-        @occurrences    = @error.occurrences.recent
-                                .limit(occ_per_page)
-                                .offset((@occ_page - 1) * occ_per_page)
-      rescue ActiveRecord::StatementInvalid
-        @occurrences = []
+      if ErrorRadar.config.track_occurrences
+        begin
+          @occ_page        = [params[:occ_page].to_i, 1].max
+          occ_per_page     = 20
+          @occ_total       = @error.occurrences.count
+          @occ_total_pages = [(@occ_total.to_f / occ_per_page).ceil, 1].max
+          @occ_page        = [@occ_page, @occ_total_pages].min
+          @occurrences     = @error.occurrences.recent
+                                   .limit(occ_per_page)
+                                   .offset((@occ_page - 1) * occ_per_page)
+        rescue ActiveRecord::StatementInvalid
+          @occurrences = []
+        end
       end
+
+      @has_v100    = @error.class.column_names.include?('assigned_to')
+      @comments    = []
+      @activities  = []
+      if @has_v100
+        begin
+          @comments   = @error.comments.chronological
+          @activities = @error.activities.recent.limit(50)
+        rescue ActiveRecord::StatementInvalid
+          @has_v100 = false
+        end
+      end
+    end
+
+    def assign
+      unless @error.class.column_names.include?('assigned_to')
+        return render json: { ok: false, error: 'Run upgrade_v100 migration first' }, status: :unprocessable_entity
+      end
+
+      assignee = params[:assigned_to].to_s.strip.truncate(200)
+      @error.update!(assigned_to: assignee.presence)
+
+      action_label = assignee.present? ? "assigned → #{assignee}" : 'unassigned'
+      log_activity(@error, action: action_label)
+
+      render json: { ok: true, assigned_to: @error.assigned_to }
+    end
+
+    def comment
+      body = params[:body].to_s.strip
+      if body.blank?
+        return render json: { ok: false, error: 'Comment cannot be blank' }, status: :unprocessable_entity
+      end
+
+      author = (error_radar_current_user.presence || params[:author].to_s.strip.presence || 'Anonymous').truncate(200)
+      cmt    = ErrorComment.create!(error_log: @error, author: author, body: body)
+
+      log_activity(@error, action: 'commented', actor: author, detail: body.truncate(120))
+
+      render json: {
+        ok:         true,
+        id:         cmt.id,
+        author:     cmt.author,
+        body:       cmt.body,
+        created_at: cmt.created_at.strftime('%Y-%m-%d %H:%M')
+      }
+    rescue ActiveRecord::StatementInvalid
+      render json: { ok: false, error: 'Run upgrade_v100 migration first' }, status: :unprocessable_entity
+    end
+
+    def destroy_comment
+      cmt = ErrorComment.find(params[:cid])
+      return head :not_found unless cmt.error_log_id == @error.id
+
+      cmt.destroy!
+      log_activity(@error, action: 'comment_deleted')
+      render json: { ok: true }
+    rescue ActiveRecord::RecordNotFound
+      head :not_found
+    rescue ActiveRecord::StatementInvalid
+      head :unprocessable_entity
     end
 
     def update_status
@@ -52,6 +113,7 @@ module ErrorRadar
         @error.update!(status: new_status, resolved_at: nil)
       end
 
+      log_activity(@error, action: new_status, detail: params[:note].presence)
       render json: { ok: true, id: @error.id, status: @error.status }
     end
 
@@ -162,6 +224,18 @@ module ErrorRadar
 
     def github_configured?
       ErrorRadar.config.github_token.present? && ErrorRadar.config.github_repo.present?
+    end
+
+    def log_activity(error_log, action:, actor: nil, detail: nil)
+      return unless defined?(ErrorRadar::ErrorActivity)
+      ErrorRadar::ErrorActivity.create!(
+        error_log: error_log,
+        actor:     (actor || error_radar_current_user).to_s.presence,
+        action:    action.to_s,
+        detail:    detail.to_s.truncate(500).presence
+      )
+    rescue StandardError
+      # silently skip if table not yet created or any other error
     end
 
     def active_filter_params
