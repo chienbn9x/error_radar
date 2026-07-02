@@ -28,10 +28,10 @@ module ErrorRadar
         begin
           @occ_page        = [params[:occ_page].to_i, 1].max
           occ_per_page     = 20
-          @occ_total       = @error.occurrences.count
+          @occ_total       = @error.error_occurrences.count
           @occ_total_pages = [(@occ_total.to_f / occ_per_page).ceil, 1].max
           @occ_page        = [@occ_page, @occ_total_pages].min
-          @occurrences     = @error.occurrences.recent
+          @occurrences     = @error.error_occurrences.recent
                                    .limit(occ_per_page)
                                    .offset((@occ_page - 1) * occ_per_page)
         rescue ActiveRecord::StatementInvalid

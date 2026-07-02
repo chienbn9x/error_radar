@@ -16,9 +16,9 @@ module ErrorRadar
 
     enum status: { open: 0, in_progress: 1, resolved: 2, ignored: 3 }, _prefix: :status
 
-    has_many :occurrences, class_name: 'ErrorRadar::ErrorOccurrence',
-                           foreign_key: :error_log_id,
-                           dependent: :delete_all
+    has_many :error_occurrences, class_name: 'ErrorRadar::ErrorOccurrence',
+                                foreign_key: :error_log_id,
+                                dependent: :delete_all
 
     has_many :comments,   class_name: 'ErrorRadar::ErrorComment',
                           foreign_key: :error_log_id,

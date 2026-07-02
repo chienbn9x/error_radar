@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-07-03
+
+### Fixed
+- **`has_many :error_occurrences` naming conflict**: renamed the association from
+  `:occurrences` to `:error_occurrences` on `ErrorLog` to stop it from shadowing
+  the `occurrences` integer column. The collision caused:
+  - 500 error on the All Errors page (`e.occurrences > 100` raised
+    `NoMethodError` because the column reader returned a `CollectionProxy`)
+  - Dashboard kanban cards showing
+    `count: #<ActiveRecord_Associations_CollectionProxy …>` instead of the
+    integer hit count
+  - `log.occurrences += 1` silently broken inside `ErrorLog.record`
+- Updated `ErrorsController#show` and `Api::ErrorsController#serialize` to call
+  `error_occurrences` (the association) while leaving all other `log.occurrences`
+  calls reading the integer column as before.
+
 ## [1.0.1] - 2026-07-03
 
 ### Added

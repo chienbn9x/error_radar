@@ -102,7 +102,7 @@ module ErrorRadar
 
           if ErrorRadar.config.track_occurrences
             begin
-              data[:recent_occurrences] = log.occurrences.recent.limit(10).map do |occ|
+              data[:recent_occurrences] = log.error_occurrences.recent.limit(10).map do |occ|
                 {
                   id:           occ.id,
                   occurred_at:  occ.occurred_at&.iso8601,
