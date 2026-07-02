@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <%
+    sev_colors = { 'critical' => '#7b001c', 'error' => '#dc3545', 'warning' => '#fd7e14', 'info' => '#17a2b8' }
+    period_label = @period == :weekly ? 'Weekly' : 'Daily'
+    fmt = ->(t) { t&.strftime('%Y-%m-%d %H:%M') }
+  %>
+</head>
+<body style="margin:0;padding:24px 8px;background:#f3f4f6;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2937">
+<div style="max-width:640px;margin:0 auto">
+
+  <%# ── Header ── %>
+  <div style="background:#1f2937;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0">
+    <h1 style="margin:0 0 4px;font-size:18px">📊 <%= @app_name %> — <%= period_label %> Error Digest</h1>
+    <div style="font-size:12px;color:#9ca3af">
+      <%= fmt.call(@data[:period_start]) %> → <%= fmt.call(@data[:period_end]) %>
+    </div>
+  </div>
+
+  <%# ── Summary cards ── %>
+  <div style="background:#fff;padding:20px 24px">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
+      <tr>
+        <td width="25%" style="padding:4px">
+          <div style="background:#fef3c7;border-radius:8px;padding:14px 10px;text-align:center">
+            <div style="font-size:26px;font-weight:700;color:#92400e"><%= @data[:new_this_period] %></div>
+            <div style="font-size:11px;color:#78350f;margin-top:2px">New errors</div>
+          </div>
+        </td>
+        <td width="25%" style="padding:4px">
+          <div style="background:#fee2e2;border-radius:8px;padding:14px 10px;text-align:center">
+            <div style="font-size:26px;font-weight:700;color:#991b1b"><%= @data[:unresolved] %></div>
+            <div style="font-size:11px;color:#7f1d1d;margin-top:2px">Open + in progress</div>
+          </div>
+        </td>
+        <td width="25%" style="padding:4px">
+          <div style="background:#d1fae5;border-radius:8px;padding:14px 10px;text-align:center">
+            <div style="font-size:26px;font-weight:700;color:#065f46"><%= @data[:resolved_this_period] %></div>
+            <div style="font-size:11px;color:#064e3b;margin-top:2px">Resolved</div>
+          </div>
+        </td>
+        <td width="25%" style="padding:4px">
+          <div style="background:#f3f4f6;border-radius:8px;padding:14px 10px;text-align:center">
+            <div style="font-size:26px;font-weight:700;color:#374151"><%= @data[:total] %></div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px">Total in DB</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <%# ── Severity breakdown ── %>
+    <% if @data[:by_severity].any? %>
+      <div style="margin-bottom:24px">
+        <h2 style="margin:0 0 10px;font-size:14px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em">Unresolved by severity</h2>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <% %w[critical error warning info].each do |sev| %>
+            <% count = @data[:by_severity][sev].to_i %>
+            <% next if count.zero? %>
+            <% pct = (@data[:unresolved] > 0 ? count.to_f / @data[:unresolved] * 100 : 0).round %>
+            <tr style="margin-bottom:6px">
+              <td width="80" style="padding:3px 0">
+                <span style="display:inline-block;padding:2px 10px;border-radius:10px;color:#fff;font-size:11px;font-weight:600;background:<%= sev_colors[sev] || '#6c757d' %>"><%= sev %></span>
+              </td>
+              <td style="padding:3px 8px">
+                <div style="background:#e5e7eb;border-radius:4px;height:10px;overflow:hidden">
+                  <div style="background:<%= sev_colors[sev] || '#6c757d' %>;height:10px;width:<%= pct %>%"></div>
+                </div>
+              </td>
+              <td width="40" style="padding:3px 0;text-align:right;font-size:13px;font-weight:600"><%= count %></td>
+            </tr>
+          <% end %>
+        </table>
+      </div>
+    <% end %>
+
+    <%# ── Top unresolved ── %>
+    <% if @data[:top_unresolved].any? %>
+      <h2 style="margin:0 0 10px;font-size:14px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em">Top 10 unresolved (by occurrences)</h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px">
+        <thead>
+          <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
+            <th style="text-align:left;padding:7px 8px;font-size:11px;color:#6b7280;font-weight:600">Error</th>
+            <th style="text-align:left;padding:7px 8px;font-size:11px;color:#6b7280;font-weight:600;width:70px">Severity</th>
+            <th style="text-align:right;padding:7px 8px;font-size:11px;color:#6b7280;font-weight:600;width:60px">Hits</th>
+            <th style="text-align:left;padding:7px 8px;font-size:11px;color:#6b7280;font-weight:600;width:100px">Last seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @data[:top_unresolved].each do |e| %>
+            <% url = @app_host.present? ? "#{@app_host}/error_radar/errors/#{e.id}" : nil %>
+            <tr style="border-bottom:1px solid #f3f4f6">
+              <td style="padding:8px 8px">
+                <div style="font-size:12px;font-family:monospace;font-weight:600;color:#1f2937">
+                  <% if url %><a href="<%= url %>" style="color:#2563eb;text-decoration:none"><%= e.error_class %></a><% else %><%= e.error_class %><% end %>
+                </div>
+                <div style="font-size:11px;color:#6b7280;margin-top:2px"><%= e.short_message.truncate(80) %></div>
+              </td>
+              <td style="padding:8px 8px">
+                <span style="display:inline-block;padding:2px 8px;border-radius:8px;color:#fff;font-size:10px;font-weight:600;background:<%= sev_colors[e.severity] || '#6c757d' %>"><%= e.severity %></span>
+              </td>
+              <td style="padding:8px 8px;text-align:right;font-size:13px;font-weight:700;color:#1f2937"><%= e.occurrences %></td>
+              <td style="padding:8px 8px;font-size:11px;color:#6b7280"><%= e.last_seen_at&.strftime('%m/%d %H:%M') %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+
+    <%# ── New errors this period ── %>
+    <% if @data[:recent_new].any? %>
+      <h2 style="margin:0 0 10px;font-size:14px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em">🆕 New this period (<%= @data[:new_this_period] %> total)</h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px">
+        <% @data[:recent_new].each do |e| %>
+          <% url = @app_host.present? ? "#{@app_host}/error_radar/errors/#{e.id}" : nil %>
+          <tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:7px 8px">
+              <span style="display:inline-block;padding:2px 8px;border-radius:8px;color:#fff;font-size:10px;font-weight:600;background:<%= sev_colors[e.severity] || '#6c757d' %>"><%= e.severity %></span>
+            </td>
+            <td style="padding:7px 8px">
+              <div style="font-size:12px;font-family:monospace;font-weight:600">
+                <% if url %><a href="<%= url %>" style="color:#2563eb;text-decoration:none"><%= e.error_class %></a><% else %><%= e.error_class %><% end %>
+              </div>
+              <div style="font-size:11px;color:#6b7280"><%= e.short_message.truncate(90) %></div>
+            </td>
+            <td style="padding:7px 8px;font-size:11px;color:#6b7280;white-space:nowrap"><%= fmt.call(e.first_seen_at) %></td>
+          </tr>
+        <% end %>
+      </table>
+    <% end %>
+
+    <%# ── Category breakdown ── %>
+    <% if @data[:by_category].any? %>
+      <h2 style="margin:0 0 10px;font-size:14px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em">Unresolved by category</h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px">
+        <% @data[:by_category].sort_by { |_, v| -v }.each do |cat, count| %>
+          <tr>
+            <td width="140" style="padding:3px 0;font-size:12px;color:#374151"><%= cat.to_s.humanize %></td>
+            <td style="padding:3px 8px">
+              <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden">
+                <% pct = (@data[:unresolved] > 0 ? count.to_f / @data[:unresolved] * 100 : 0).round %>
+                <div style="background:#2563eb;height:8px;width:<%= pct %>%"></div>
+              </div>
+            </td>
+            <td width="36" style="padding:3px 0;text-align:right;font-size:12px;font-weight:600;color:#374151"><%= count %></td>
+          </tr>
+        <% end %>
+      </table>
+    <% end %>
+
+    <% if @app_host.present? %>
+      <div style="text-align:center;margin-top:16px">
+        <a href="<%= @app_host %>/error_radar" style="display:inline-block;background:#2563eb;color:#fff;padding:11px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Open Error Radar →</a>
+      </div>
+    <% end %>
+  </div>
+
+  <%# ── Footer ── %>
+  <div style="text-align:center;padding:16px 0;font-size:11px;color:#9ca3af">
+    Sent by <strong>Error Radar</strong> · <%= @app_name %> ·
+    Add <code>rake error_radar:digest</code> to your cron schedule.
+  </div>
+
+</div>
+</body>
+</html>

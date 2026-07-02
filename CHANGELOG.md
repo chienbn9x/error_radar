@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-07-03
+
+### Added
+- **Digest email**: a periodic summary email (HTML + plain text) with:
+  - Summary row: new errors, open + in progress, resolved this period, total in DB
+  - Unresolved-by-severity bar chart (inline table)
+  - Top 10 unresolved errors (linked to detail page when `app_host` is set)
+  - New errors first seen in the period
+  - Unresolved-by-category breakdown
+  - "Open Error Radar →" button
+- **`config.digest_enabled`** (default: `false`) — gates delivery; set `true`
+  then schedule the rake task.
+- **`config.digest_recipients`** — separate recipient list for digests; falls
+  back to `config.email_recipients` if empty.
+- **`ErrorRadar::Digest.deliver`** — programmatic delivery:
+  `ErrorRadar::Digest.deliver(since: 24.hours.ago, period: :daily)`
+- **Rake tasks**:
+  - `rake error_radar:digest` — last 24 hours (daily digest)
+  - `rake error_radar:digest:weekly` — last 7 days (weekly digest)
+  - Both accept `SINCE="2024-01-01 08:00"` env override for custom windows
+- **`DigestMailer`** (`app/mailers/error_radar/digest_mailer.rb`) —
+  ActionMailer class with HTML + text templates.
+
+### Notes
+- Requires ActionMailer configured in the host app (same requirement as the
+  existing `new_error` notification email).
+- Scheduling is left to the host app's cron/scheduler — no in-process scheduler
+  dependency. Heroku Scheduler, whenever, clockwork, solid-cron all work.
+- Subject line: `[App] Daily Digest — N new · N open · N resolved`
+
 ## [0.8.0] - 2026-07-03
 
 ### Added

@@ -1,0 +1,45 @@
+<%= @period == :weekly ? 'Weekly' : 'Daily' %> Error Digest — <%= @app_name %>
+<%= '=' * 60 %>
+Period: <%= @data[:period_start]&.strftime('%Y-%m-%d %H:%M') %> → <%= @data[:period_end]&.strftime('%Y-%m-%d %H:%M') %>
+
+SUMMARY
+  New errors this period : <%= @data[:new_this_period] %>
+  Resolved this period   : <%= @data[:resolved_this_period] %>
+  Open + in progress     : <%= @data[:unresolved] %>
+  Total in DB            : <%= @data[:total] %>
+
+UNRESOLVED BY SEVERITY
+<% %w[critical error warning info].each do |sev| %>
+<% count = @data[:by_severity][sev].to_i %><% next if count.zero? %>
+  <%= sev.ljust(10) %> <%= count %>
+<% end %>
+
+TOP 10 UNRESOLVED (by occurrences)
+<% @data[:top_unresolved].each_with_index do |e, i| %>
+  <%= (i + 1).to_s.rjust(2) %>. [<%= e.severity.upcase %>] <%= e.error_class %> (×<%= e.occurrences %>)
+      <%= e.short_message.truncate(100) %>
+      Last seen: <%= e.last_seen_at&.strftime('%Y-%m-%d %H:%M') %>
+<% if @app_host.present? %>
+      <%= @app_host %>/error_radar/errors/<%= e.id %>
+<% end %>
+<% end %>
+
+<% if @data[:recent_new].any? %>
+NEW ERRORS THIS PERIOD (<%= @data[:new_this_period] %> total, showing <%= [@data[:recent_new].size, 10].min %>)
+<% @data[:recent_new].each do |e| %>
+  · [<%= e.severity.upcase %>] <%= e.error_class %> — <%= e.first_seen_at&.strftime('%Y-%m-%d %H:%M') %>
+    <%= e.short_message.truncate(100) %>
+<% end %>
+<% end %>
+
+UNRESOLVED BY CATEGORY
+<% @data[:by_category].sort_by { |_, v| -v }.each do |cat, count| %>
+  <%= cat.to_s.humanize.ljust(20) %> <%= count %>
+<% end %>
+
+<% if @app_host.present? %>
+Open dashboard: <%= @app_host %>/error_radar
+<% end %>
+
+--
+Sent by Error Radar · Add `rake error_radar:digest` to your cron schedule.

@@ -93,6 +93,15 @@ ErrorRadar.configure do |config|
   # config.github_token = ENV['GITHUB_TOKEN']   # PAT with repo scope
   # config.github_repo  = 'myorg/myapp'         # "owner/repo" format
 
+  # --- Digest Email ---
+  # Sends a periodic summary of errors via email. Requires ActionMailer.
+  # Run via cron / Heroku Scheduler:
+  #   rake error_radar:digest          # last 24 hours (daily)
+  #   rake error_radar:digest:weekly   # last 7 days
+  #   SINCE="2024-01-01 08:00" rake error_radar:digest   # custom window
+  # config.digest_enabled    = true
+  # config.digest_recipients = ['team@myapp.com']  # falls back to email_recipients
+
   # --- Occurrence History ---
   # Store each individual error hit so you can see context/backtrace per occurrence.
   # Requires running: bin/rails generate error_radar:upgrade_v060 && bin/rails db:migrate

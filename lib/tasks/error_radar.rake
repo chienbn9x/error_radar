@@ -1,6 +1,25 @@
 # frozen_string_literal: true
 
 namespace :error_radar do
+  desc 'Send a daily digest email summarising the last 24 hours (requires config.digest_enabled = true)'
+  task digest: :environment do
+    require 'error_radar/digest'
+    since = ENV['SINCE'].presence ? Time.parse(ENV['SINCE']) : 24.hours.ago
+    ErrorRadar::Digest.deliver(since: since, period: :daily)
+    puts '[ErrorRadar] Daily digest sent.'
+  end
+
+  namespace :digest do
+    desc 'Send a weekly digest email summarising the last 7 days (requires config.digest_enabled = true)'
+    task weekly: :environment do
+      require 'error_radar/digest'
+      since = ENV['SINCE'].presence ? Time.parse(ENV['SINCE']) : 7.days.ago
+      ErrorRadar::Digest.deliver(since: since, period: :weekly)
+      puts '[ErrorRadar] Weekly digest sent.'
+    end
+  end
+
+
   desc 'Delete old resolved/ignored ErrorLogs per config.retention_days and config.max_records'
   task cleanup: :environment do
     result = ErrorRadar::Cleanup.run

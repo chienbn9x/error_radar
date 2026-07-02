@@ -69,6 +69,12 @@ module ErrorRadar
       @error_callbacks << block
     end
 
+    # Digest email ────────────────────────────────────────────────────────────
+    # Set to true to enable digest delivery (rake error_radar:digest).
+    attr_accessor :digest_enabled
+    # Separate recipient list for digests. Falls back to email_recipients if empty.
+    attr_accessor :digest_recipients
+
     # Spike detection ─────────────────────────────────────────────────────────
     # Number of occurrences within spike_window_minutes that triggers a spike alert.
     # Add :spike to notify_on to enable: config.notify_on = [:new_error, :spike]
@@ -163,7 +169,10 @@ module ErrorRadar
       @app_host             = nil
       @error_callbacks      = []
 
-      @spike_threshold     = 10
+      @digest_enabled    = false
+      @digest_recipients = []
+
+      @spike_threshold      = 10
       @spike_window_minutes = 5
 
       @track_occurrences        = false
