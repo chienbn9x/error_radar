@@ -1,0 +1,21 @@
+[<%= @app_name %>] <%= @is_new ? 'New error' : 'Critical error recurring' %>: <%= @error.error_class %>
+<%= '=' * 60 %>
+
+Error class:  <%= @error.error_class %>
+Source:       <%= @error.source || 'unknown' %>
+Category:     <%= @error.category %>
+Severity:     <%= @error.severity %>
+Occurrences:  <%= @error.occurrences %>
+First seen:   <%= @error.first_seen_at&.strftime('%Y-%m-%d %H:%M UTC') %>
+Last seen:    <%= @error.last_seen_at&.strftime('%Y-%m-%d %H:%M UTC') %>
+
+Message:
+<%= @error.message.to_s.truncate(1000) %>
+<% if @url %>
+
+View in Error Radar:
+<%= @url %>
+<% end %>
+
+--
+Sent by Error Radar · <%= @app_name %>

@@ -14,6 +14,33 @@ ErrorRadar.configure do |config|
   config.install_rake        = true   # capture Rake task failures (auto)
   config.install_rails_admin = true   # register the ErrorLog board (auto, if RailsAdmin present)
 
+  # --- Notifications ---
+  # When to fire: :new_error (first occurrence of a fingerprint, default),
+  #               :critical  (any critical severity, throttled to 1/hour),
+  #               :all       (every occurrence, throttled to 1/hour per fingerprint)
+  config.notify_on = [:new_error]
+
+  # Slack incoming webhook (https://api.slack.com/messaging/webhooks)
+  # config.slack_webhook_url = ENV['SLACK_WEBHOOK_URL']
+  # config.slack_channel     = '#errors'   # optional override
+
+  # Discord incoming webhook
+  # config.discord_webhook_url = ENV['DISCORD_WEBHOOK_URL']
+
+  # Email (requires ActionMailer to be configured in the host app)
+  # config.email_recipients = ['dev@myapp.com', 'oncall@myapp.com']
+  # config.email_from       = 'errors@myapp.com'
+
+  # Generic webhook — POST JSON to any URL (PagerDuty, OpsGenie, custom scripts)
+  # config.webhook_urls = [ENV['PAGERDUTY_WEBHOOK_URL']]
+
+  # Base URL used to generate deep-links in notifications
+  # config.app_host = 'https://myapp.com'
+  # config.app_name = 'MyApp'              # shown in notification title/subject
+
+  # Custom callback — runs after all built-in channels
+  # config.on_error { |error_log| MyPager.create_incident(error_log) }
+
   # --- Dashboard access control ---
   # Run as a before_action; raise/redirect inside to deny. Example with Devise:
   # config.authenticate = ->(controller) { controller.send(:authenticate_admin!) }

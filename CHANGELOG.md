@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-07-03
+
+### Added
+- **Slack notifications**: sends a Block Kit message with error details and a
+  deep-link button. Configure with `config.slack_webhook_url` and optional
+  `config.slack_channel`.
+- **Discord notifications**: sends a rich embed to any Discord webhook.
+  Configure with `config.discord_webhook_url`.
+- **Email notifications**: delivers an HTML + plain-text email via ActionMailer.
+  Configure `config.email_recipients` and `config.email_from`.
+- **Generic webhook**: POSTs a JSON payload to any URL (PagerDuty, OpsGenie,
+  custom scripts). Configure with `config.webhook_urls = [url1, url2]`.
+- **Custom callbacks**: `config.on_error { |log| ... }` for arbitrary alerting
+  logic (e.g. PagerDuty SDK, Telegram, SMS).
+- **`notify_on` rule set**: controls when alerts fire — `:new_error` (default,
+  first occurrence per fingerprint), `:critical` (any critical severity, 1/hour
+  throttle), `:all` (every occurrence, 1/hour throttle per fingerprint).
+- **In-memory throttle**: prevents notification storms for `:critical` and `:all`
+  rules — at most one alert per fingerprint per hour.
+- **Deep-links in notifications**: set `config.app_host` to include a link to
+  the error detail page in every notification.
+- **`ErrorLog#new_fingerprint?`**: transient predicate (not persisted) that is
+  `true` when the record was just created for the first time.
+
 ## [0.3.0] - 2026-07-03
 
 ### Added

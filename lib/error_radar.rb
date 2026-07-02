@@ -3,6 +3,7 @@
 require 'error_radar/version'
 require 'error_radar/configuration'
 require 'error_radar/tracking'
+require 'error_radar/notifier'
 require 'error_radar/middleware'
 require 'error_radar/server_monitor'
 require 'error_radar/engine'

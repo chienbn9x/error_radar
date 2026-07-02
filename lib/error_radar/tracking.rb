@@ -27,7 +27,9 @@ module ErrorRadar
         attrs.merge!(extra.compact) if extra.is_a?(Hash)
       end
 
-      ErrorRadar::ErrorLog.record(**attrs)
+      log = ErrorRadar::ErrorLog.record(**attrs)
+      ErrorRadar::Notifier.dispatch(log) if log
+      log
     rescue StandardError => e
       warn_internal("capture failed: #{e.class}: #{e.message}")
       nil
@@ -47,7 +49,9 @@ module ErrorRadar
     def notify(message, category: :application, severity: :error, source: nil, context: {})
       return nil unless ErrorRadar.config.enabled
 
-      ErrorRadar::ErrorLog.record(category: category, severity: severity, message: message, source: source, context: context)
+      log = ErrorRadar::ErrorLog.record(category: category, severity: severity, message: message, source: source, context: context)
+      ErrorRadar::Notifier.dispatch(log) if log
+      log
     rescue StandardError => e
       warn_internal("notify failed: #{e.class}: #{e.message}")
       nil

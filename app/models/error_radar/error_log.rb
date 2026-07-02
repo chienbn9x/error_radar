@@ -29,13 +29,18 @@ module ErrorRadar
     # Record (or roll-up) an error. Idempotent per fingerprint: identical errors
     # increment `occurrences` and bump `last_seen_at` instead of creating a new
     # row. NEVER raises — logging must not break the calling code path.
+    def new_fingerprint?
+      @new_fingerprint || false
+    end
+
     def self.record(category:, message:, severity: :error, error_class: nil, source: nil,
                     backtrace: nil, context: {}, http_status: nil, request_url: nil,
                     api_code: nil, api_subcode: nil, fingerprint: nil)
       now = Time.current
       fp  = presence(fingerprint) || build_fingerprint(category: category, error_class: error_class, source: source, message: message)
 
-      log = find_or_initialize_by(fingerprint: fp)
+      log             = find_or_initialize_by(fingerprint: fp)
+      new_fingerprint = !log.persisted?
 
       if log.persisted?
         log.occurrences += 1
@@ -54,6 +59,7 @@ module ErrorRadar
       log.severity     = severity if log.new_record? || severity_rank(severity) > severity_rank(log.severity)
       log.last_seen_at = now
       log.save!
+      log.instance_variable_set(:@new_fingerprint, new_fingerprint)
       log
     rescue StandardError => e
       ErrorRadar::Tracking.warn_internal("ErrorLog.record failed: #{e.class}: #{e.message}")

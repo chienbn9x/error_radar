@@ -35,6 +35,40 @@ module ErrorRadar
     attr_accessor :install_middleware, :install_sidekiq, :install_rails_admin,
                   :install_active_job, :install_rake
 
+    # Notifications ─────────────────────────────────────────────────────────
+    # When to fire: :new_error (first time a fingerprint is seen),
+    #               :critical  (any critical-severity occurrence, throttled),
+    #               :all       (every occurrence, throttled to 1/hour/fingerprint)
+    attr_accessor :notify_on
+
+    # Slack incoming-webhook URL (https://hooks.slack.com/services/...)
+    attr_accessor :slack_webhook_url
+    # Override target channel. Leave nil to use webhook's default channel.
+    attr_accessor :slack_channel
+
+    # Discord incoming-webhook URL
+    attr_accessor :discord_webhook_url
+
+    # ActionMailer recipients. Requires ActionMailer to be configured in host app.
+    attr_accessor :email_recipients
+    # From address for notification emails.
+    attr_accessor :email_from
+
+    # One or more plain HTTPS URLs that receive a POST with JSON body on each alert.
+    attr_accessor :webhook_urls
+
+    # App name shown in notification subject/title. Defaults to Rails app name.
+    attr_accessor :app_name
+    # Base URL used to build deep-links (e.g. "https://myapp.com").
+    attr_accessor :app_host
+
+    # Custom callbacks: ->(error_log) { ... }. Called after built-in channels.
+    attr_reader :error_callbacks
+
+    def on_error(&block)
+      @error_callbacks << block
+    end
+
     # Custom classification rules. Each is a callable `->(exception) { :category | nil }`.
     # The first rule that returns a non-nil category wins; built-in rules run after.
     attr_accessor :categorizers
@@ -79,6 +113,17 @@ module ErrorRadar
       @install_rails_admin = true
       @install_active_job  = true
       @install_rake        = true
+
+      @notify_on            = [:new_error]
+      @slack_webhook_url    = nil
+      @slack_channel        = nil
+      @discord_webhook_url  = nil
+      @email_recipients     = []
+      @email_from           = nil
+      @webhook_urls         = []
+      @app_name             = nil
+      @app_host             = nil
+      @error_callbacks      = []
       @categorizers       = []
       @detail_extractors  = []
       @expected_servers   = []
