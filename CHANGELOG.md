@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-07-03
+
+### Added
+- **Usage Guide page** at `/error_radar/guide` — a built-in reference screen accessible
+  from the nav bar. Shows:
+  - Live status badges (ON / OFF / CONFIGURED) for every feature, read directly from
+    the current `ErrorRadar.config` values at request time
+  - Feature descriptions, use-case explanations, and code snippets to enable each one
+  - Which features can be toggled on/off and how
+  - Upgrade generator reference table (which generator is needed for which feature)
+  - Full configuration reference table with current values (sensitive values shown as `*** (set)`)
+- **"Guide" link** added to the nav bar.
+
 ## [1.0.0] - 2026-07-03
 
 ### Added

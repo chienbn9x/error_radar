@@ -2,6 +2,7 @@
 
 ErrorRadar::Engine.routes.draw do
   root to: 'dashboard#index'
+  get 'guide', to: 'guide#index', as: :guide
 
   # REST API — JSON endpoints for CI/CD, external dashboards, scripts
   namespace :api, defaults: { format: :json } do

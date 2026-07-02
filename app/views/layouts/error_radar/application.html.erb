@@ -56,6 +56,7 @@
         <a href="<%= root_path %>" class="nav-logo">🛰 Error Radar</a>
         <a href="<%= root_path %>" class="nav-link <%= 'active' if controller_name == 'dashboard' %>">Dashboard</a>
         <a href="<%= errors_path %>" class="nav-link <%= 'active' if controller_name == 'errors' %>">All Errors</a>
+        <a href="<%= guide_path %>" class="nav-link <%= 'active' if controller_name == 'guide' %>">Guide</a>
       </div>
     </nav>
     <div class="wrap"><%= yield %></div>

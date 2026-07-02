@@ -1,0 +1,643 @@
+<%
+  cfg = ErrorRadar.config
+  s   = @sections
+
+  on  = ->(v) { v ? ['ON',  '#16a34a', '#dcfce7'] : ['OFF', '#6b7280', '#f3f4f6'] }
+  cfg_badge = ->(v) do
+    v.present? ? ['CONFIGURED', '#16a34a', '#dcfce7'] : ['NOT SET', '#dc2626', '#fee2e2']
+  end
+
+  badge = ->(label, bg, fg='#fff') do
+    "<span style='display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#{bg};color:#{fg}'>#{label}</span>"
+  end
+
+  status = ->(v) do
+    l, bg = on.call(v)
+    badge.call(l, bg)
+  end
+
+  code = ->(str) do
+    "<pre style='margin:0;background:#1e293b;color:#e2e8f0;padding:12px 14px;border-radius:8px;font-size:12px;overflow-x:auto;white-space:pre-wrap'>#{ERB::Util.html_escape(str)}</pre>"
+  end
+%>
+
+<style>
+  .guide-wrap    { display:grid;grid-template-columns:220px 1fr;gap:28px;align-items:start }
+  .guide-sidebar { position:sticky;top:20px }
+  .guide-sidebar a { display:block;padding:6px 12px;font-size:13px;color:#6b7280;border-radius:6px;margin-bottom:2px }
+  .guide-sidebar a:hover { background:#f3f4f6;color:#1f2937 }
+  .guide-sidebar .sid-section { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;padding:14px 12px 4px }
+  .guide-section { margin-bottom:32px;scroll-margin-top:20px }
+  .guide-section h2 { font-size:16px;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid #e5e7eb;display:flex;align-items:center;gap:8px }
+  .guide-cards { display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px }
+  .guide-card { background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04) }
+  .guide-card-head { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px }
+  .guide-card-title { font-size:13px;font-weight:700;color:#111827 }
+  .guide-card-icon { font-size:16px;margin-right:6px }
+  .guide-card-desc { font-size:12px;color:#6b7280;line-height:1.6;margin-bottom:10px }
+  .guide-card-code { font-size:11px }
+  .guide-note { font-size:12px;color:#6b7280;background:#f9fafb;border-left:3px solid #d1d5db;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:16px }
+  .cfg-table { width:100%;border-collapse:collapse;font-size:12px }
+  .cfg-table th { text-align:left;padding:7px 10px;background:#f9fafb;color:#6b7280;font-weight:600;border-bottom:2px solid #e5e7eb }
+  .cfg-table td { padding:7px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top }
+  .cfg-table td code { background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px }
+  .cfg-table tr:hover td { background:#fafafa }
+</style>
+
+<div style="margin-bottom:20px">
+  <h1 style="margin:0 0 4px">📖 Usage Guide</h1>
+  <div class="sub">Integration overview, feature status, and configuration reference</div>
+</div>
+
+<div class="guide-wrap">
+
+  <%# ── Sidebar ── %>
+  <div class="guide-sidebar panel">
+    <div class="sid-section">Navigation</div>
+    <a href="#getting-started">🚀 Getting started</a>
+    <a href="#auto-capture">⚡ Auto-capture</a>
+    <a href="#notifications">🔔 Notifications</a>
+    <a href="#api">🔌 API &amp; GitHub</a>
+    <a href="#performance">⚙️ Performance</a>
+    <a href="#team">👥 Team workflow</a>
+    <div class="sid-section">Reference</div>
+    <a href="#config-ref">🗂 Config reference</a>
+    <div class="sid-section">Quick setup</div>
+    <a href="#generators">🛠 Generators</a>
+  </div>
+
+  <%# ── Main content ── %>
+  <div>
+
+    <%# ── Getting started ── %>
+    <div class="guide-section" id="getting-started">
+      <h2>🚀 Getting started</h2>
+      <div class="guide-note">
+        Add to <code>Gemfile</code>: <code>gem 'error_radar'</code>, then run
+        <code>bundle install</code> and the install generator below.
+      </div>
+      <div class="guide-cards">
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">1️⃣</span>Install</div>
+          </div>
+          <div class="guide-card-desc">Generate the initializer and base migration.</div>
+          <div class="guide-card-code">
+            <%= raw code.call("bin/rails generate error_radar:install\nbin/rails db:migrate") %>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">2️⃣</span>Mount the engine</div>
+          </div>
+          <div class="guide-card-desc">Add to <code>config/routes.rb</code>. The dashboard will be at <code>/error_radar</code>.</div>
+          <div class="guide-card-code">
+            <%= raw code.call("# config/routes.rb\nmount ErrorRadar::Engine => '/error_radar'") %>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">3️⃣</span>Configure</div>
+          </div>
+          <div class="guide-card-desc">Edit <code>config/initializers/error_radar.rb</code> — generated by the install command.</div>
+          <div class="guide-card-code">
+            <%= raw code.call("ErrorRadar.configure do |config|\n  config.enabled = !Rails.env.test?\n  # ... see sections below\nend") %>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">4️⃣</span>Protect the dashboard</div>
+          </div>
+          <div class="guide-card-desc">Run a <code>before_action</code> to restrict access. Raise or redirect inside the lambda to deny.</div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.authenticate = ->(ctrl) {\n  ctrl.send(:authenticate_admin!)\n}\nconfig.current_user = ->(ctrl) {\n  ctrl.current_admin&.email\n}") %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%# ── Auto-capture ── %>
+    <div class="guide-section" id="auto-capture">
+      <h2>⚡ Auto-capture <span style="font-size:12px;font-weight:400;color:#6b7280">— zero-config exception collection</span></h2>
+      <div class="guide-note">
+        All integrations are <strong>enabled by default</strong>. They activate only when the underlying library is present.
+        Set any flag to <code>false</code> to disable it.
+      </div>
+      <div class="guide-cards">
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🌐</span>Rack middleware</div>
+            <%= raw status.call(s[:auto_capture][:middleware]) %>
+          </div>
+          <div class="guide-card-desc">
+            Catches all unhandled exceptions in the web request cycle. Runs after
+            <code>ActionDispatch::DebugExceptions</code> so it only fires for real 5xx errors,
+            not routing errors or 404s. The main way web exceptions are captured.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.install_middleware = true  # default\nconfig.install_middleware = false # disable") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">⚙️</span>ActiveJob</div>
+            <%= raw status.call(s[:auto_capture][:active_job]) %>
+          </div>
+          <div class="guide-card-desc">
+            Wraps every ActiveJob subclass via <code>ActiveSupport.on_load(:active_job)</code>.
+            Works with any queue adapter — Sidekiq, Solid Queue, Delayed Job, async, etc.
+            Disable if you only use Sidekiq and want to avoid double-counting.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.install_active_job = true  # default\nconfig.install_active_job = false # disable") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🔄</span>Sidekiq</div>
+            <%= raw status.call(s[:auto_capture][:sidekiq]) %>
+          </div>
+          <div class="guide-card-desc">
+            Installs a Sidekiq server middleware that captures every failed job including
+            retries. Auto-detected — only activates if Sidekiq is loaded.
+            <% unless defined?(::Sidekiq) %>
+              <strong>Sidekiq not detected in this process.</strong>
+            <% end %>
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.install_sidekiq = true  # default\nconfig.install_sidekiq = false # disable") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🔧</span>Rake tasks</div>
+            <%= raw status.call(s[:auto_capture][:rake]) %>
+          </div>
+          <div class="guide-card-desc">
+            Monkey-patches <code>Rake::Task#execute</code> so any unhandled exception in
+            any rake task is automatically captured and re-raised. Useful for cron jobs
+            and one-off maintenance tasks.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.install_rake = true  # default\nconfig.install_rake = false # disable") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">📋</span>RailsAdmin</div>
+            <%= raw status.call(s[:auto_capture][:rails_admin]) %>
+          </div>
+          <div class="guide-card-desc">
+            Registers an ErrorLog board in RailsAdmin with custom resolve/ignore actions.
+            Auto-detected — only activates if RailsAdmin is loaded.
+            <% unless defined?(::RailsAdmin) %>
+              <strong>RailsAdmin not detected.</strong>
+            <% end %>
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.install_rails_admin = true  # default\nconfig.install_rails_admin = false # disable") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🚫</span>Ignored exceptions</div>
+          </div>
+          <div class="guide-card-desc">
+            Exception classes the middleware will NOT log. Defaults cover expected
+            client errors: routing errors, 404s, bad requests, auth failures.
+            Add your own to keep the dashboard free of noise.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.ignored_exceptions += [\n  'MyApp::ExpectedError',\n  'Pundit::NotAuthorizedError'\n]") %>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <%# ── Notifications ── %>
+    <div class="guide-section" id="notifications">
+      <h2>🔔 Notifications <span style="font-size:12px;font-weight:400;color:#6b7280">— alerts when errors occur</span></h2>
+      <div class="guide-note">
+        Current rule: <strong><code>notify_on: [<%= s[:notifications][:notify_on].presence || 'not set' %>]</code></strong>.
+        Add channels below, then choose when to fire with <code>notify_on</code>.
+      </div>
+      <div class="guide-cards">
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">⏰</span>notify_on rules</div>
+          </div>
+          <div class="guide-card-desc">
+            Controls <em>when</em> alerts fire. Mix and match:
+            <br>• <code>:new_error</code> — first time a fingerprint is seen (no throttle)
+            <br>• <code>:critical</code> — any critical severity, throttled 1×/hour
+            <br>• <code>:all</code> — every hit, throttled 1×/hour per fingerprint
+            <br>• <code>:spike</code> — N hits in M minutes (see Spike Alerts below)
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.notify_on = [:new_error]\n# or\nconfig.notify_on = [:new_error, :spike]\n# or\nconfig.notify_on = [:new_error, :critical]") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">💬</span>Slack</div>
+            <%= raw status.call(s[:notifications][:slack]) %>
+          </div>
+          <div class="guide-card-desc">
+            Sends a Block Kit message with error details and a "View in Error Radar" button.
+            Create an incoming webhook at api.slack.com/messaging/webhooks.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.slack_webhook_url = ENV['SLACK_WEBHOOK_URL']\nconfig.slack_channel    = '#errors' # optional override") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🎮</span>Discord</div>
+            <%= raw status.call(s[:notifications][:discord]) %>
+          </div>
+          <div class="guide-card-desc">
+            Sends a rich embed to any Discord channel via an incoming webhook.
+            Create at: Server Settings → Integrations → Webhooks.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.discord_webhook_url = ENV['DISCORD_WEBHOOK_URL']") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">📧</span>Email</div>
+            <%= raw status.call(s[:notifications][:email]) %>
+          </div>
+          <div class="guide-card-desc">
+            Delivers an HTML + plain-text email via ActionMailer. Uses
+            <code>deliver_later</code> so it doesn't block the request.
+            Requires ActionMailer to be configured in the host app.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.email_recipients = ['dev@myapp.com']\nconfig.email_from       = 'errors@myapp.com'") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🔗</span>Generic webhooks</div>
+            <%= raw status.call(s[:notifications][:webhooks]) %>
+          </div>
+          <div class="guide-card-desc">
+            POSTs a JSON payload to any URL on each alert. Use for PagerDuty, OpsGenie,
+            n8n, Zapier, or any custom script. Multiple URLs supported.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.webhook_urls = [\n  ENV['PAGERDUTY_WEBHOOK_URL'],\n  'https://myapp.com/hooks/errors'\n]") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">⚡</span>Spike alerts</div>
+            <%= raw status.call(s[:notifications][:spike_alerts]) %>
+          </div>
+          <div class="guide-card-desc">
+            Fires when a single error exceeds the threshold within the window.
+            Uses the occurrences DB (if track_occurrences is on) or an in-memory
+            ring buffer. Re-alerts at most once per window.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.notify_on           = [:new_error, :spike]\nconfig.spike_threshold     = 10  # occurrences...\nconfig.spike_window_minutes = 5  # ...in this many minutes") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🔧</span>Custom callbacks</div>
+            <%= raw status.call(s[:notifications][:callbacks]) %>
+          </div>
+          <div class="guide-card-desc">
+            Run arbitrary Ruby after all built-in channels. Use for integrations
+            not covered above (Telegram, PagerDuty SDK, SMS, custom logging, etc.).
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.on_error do |error_log|\n  PagerDuty.create_incident(\n    title: error_log.error_class,\n    severity: error_log.severity\n  )\nend") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🌍</span>Deep links in alerts</div>
+            <%= raw status.call(cfg.app_host.present?) %>
+          </div>
+          <div class="guide-card-desc">
+            Set <code>app_host</code> to include a clickable link to the error detail
+            page in every Slack/Discord/email/webhook notification.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.app_host = 'https://myapp.com'\nconfig.app_name = 'MyApp'  # shown in notification title") %>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <%# ── API & GitHub ── %>
+    <div class="guide-section" id="api">
+      <h2>🔌 API &amp; GitHub</h2>
+      <div class="guide-cards">
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">📡</span>REST API</div>
+            <%= raw badge.call('ALWAYS ON', '#2563eb') %>
+          </div>
+          <div class="guide-card-desc">
+            JSON endpoints for CI/CD scripts, external dashboards, and automation.
+            Secured via Bearer token (set <code>api_token</code>). Leave nil for open access (dev only).
+            <br><br>
+            <code>GET  /api/errors</code> — paginated list with filters<br>
+            <code>GET  /api/errors/:id</code> — full detail + occurrences<br>
+            <code>PATCH /api/errors/:id</code> — update status<br>
+            <code>GET  /api/stats</code> — summary counts
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.api_token = ENV['ERROR_RADAR_API_TOKEN']\n\n# Usage:\n# curl -H 'Authorization: Bearer $TOKEN' \\\n#   https://myapp.com/error_radar/api/stats") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🐙</span>GitHub Issues</div>
+            <%= raw status.call(s[:api][:github]) %>
+          </div>
+          <div class="guide-card-desc">
+            Create a pre-filled GitHub issue from any error detail page.
+            Includes error class, source, message, backtrace and a deep-link back.
+            Requires the upgrade_v050 migration for URL persistence.
+            <% if s[:api][:github_repo].present? %>
+              <br><strong>Repo:</strong> <code><%= s[:api][:github_repo] %></code>
+            <% end %>
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.github_token = ENV['GITHUB_TOKEN'] # PAT with repo scope\nconfig.github_repo  = 'myorg/myapp'\n\n# Then run:\n# rails generate error_radar:upgrade_v050\n# rails db:migrate") %>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <%# ── Performance ── %>
+    <div class="guide-section" id="performance">
+      <h2>⚙️ Performance &amp; Scale</h2>
+      <div class="guide-cards">
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🚀</span>Async capture</div>
+            <%= raw status.call(s[:performance][:async_capture]) %>
+          </div>
+          <div class="guide-card-desc">
+            Enqueues the DB write via ActiveJob so exceptions don't block the
+            hot request/job path. Falls back to synchronous if ActiveJob is absent.
+            Requires a queue adapter (Sidekiq, Solid Queue, etc.).
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.async_capture     = true\nconfig.capture_job_queue = :default # queue name") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🔍</span>Occurrence history</div>
+            <%= raw status.call(s[:performance][:occurrence_tracking]) %>
+          </div>
+          <div class="guide-card-desc">
+            Stores each individual hit in <code>error_radar_occurrences</code> with
+            context, backtrace, HTTP status and request URL. Shown as a paginated
+            timeline on the error detail page. Also powers accurate spike detection.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("# 1. Run migration:\n# rails generate error_radar:upgrade_v060\n# rails db:migrate\n\n# 2. Enable:\nconfig.track_occurrences         = true\nconfig.max_occurrences_per_error = 200 # keep last N per error") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🧹</span>Retention / cleanup</div>
+            <%
+              ret_on = s[:performance][:retention_days].present? || s[:performance][:max_records].present?
+            %>
+            <%= raw status.call(ret_on) %>
+          </div>
+          <div class="guide-card-desc">
+            Auto-prune resolved/ignored records to keep the table lean.
+            Only deletes <code>resolved</code> and <code>ignored</code> rows — open errors are never touched.
+            <% if s[:performance][:retention_days] %>
+              <br>Current: <strong><%= s[:performance][:retention_days] %> days</strong> retention.
+            <% end %>
+            <% if s[:performance][:max_records] %>
+              <br>Cap: <strong><%= number_with_delimiter(s[:performance][:max_records]) %> records</strong>.
+            <% end %>
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.retention_days = 90    # delete records older than 90 days\nconfig.max_records    = 50000 # hard cap on total rows\n\n# Schedule via cron:\n# rake error_radar:cleanup\n# rake error_radar:cleanup:dry_run") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🛠</span>Rake tasks</div>
+            <%= raw badge.call('AVAILABLE', '#2563eb') %>
+          </div>
+          <div class="guide-card-desc">
+            All built-in rake tasks for maintenance and reporting.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("rake error_radar:stats                # print table summary\nrake error_radar:cleanup              # prune per config\nrake error_radar:cleanup:dry_run      # preview without deleting\nrake error_radar:cleanup:older_than   # DAYS=30 rake ...\nrake error_radar:digest               # send daily digest\nrake error_radar:digest:weekly        # send weekly digest") %>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <%# ── Team workflow ── %>
+    <div class="guide-section" id="team">
+      <h2>👥 Team workflow</h2>
+      <div class="guide-cards">
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">📋</span>Assignment &amp; Comments</div>
+            <%= raw status.call(s[:team][:v100_migrated]) %>
+          </div>
+          <div class="guide-card-desc">
+            Assign errors to team members, add comment threads, and track every action
+            in an activity log. One migration adds all three features.
+            <% unless s[:team][:v100_migrated] %>
+              <br><strong>Migration not yet run.</strong>
+            <% end %>
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("# Run once:\nbin/rails generate error_radar:upgrade_v100\nbin/rails db:migrate\n\n# No config needed — use the UI on any error detail page.") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">📊</span>Digest email</div>
+            <%= raw status.call(s[:team][:digest]) %>
+          </div>
+          <div class="guide-card-desc">
+            Periodic HTML summary email: new errors, top unresolved, resolved this period,
+            severity breakdown, category breakdown. Schedule via cron or Heroku Scheduler.
+            Separate recipient list from real-time alerts.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.digest_enabled    = true\nconfig.digest_recipients = ['team@myapp.com']\n\n# Heroku Scheduler / cron:\n# 0 8 * * * rake error_radar:digest\n# 0 8 * * 1 rake error_radar:digest:weekly") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🏷</span>Custom categories</div>
+            <%= raw badge.call('EXTENSIBLE', '#7c3aed') %>
+          </div>
+          <div class="guide-card-desc">
+            Built-in: <code>application</code>, <code>external_api</code>, <code>background_job</code>,
+            <code>syntax</code>, <code>database</code>, <code>network</code>.
+            Add app-specific categories — stored integers must stay stable once data exists.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("config.register_category(:payments_api, 6)\nconfig.register_category(:instagram_api, 7)\n\n# Or custom classification rules:\nconfig.categorize do |e|\n  :payments_api if e.is_a?(Stripe::StripeError)\nend") %>
+          </div>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card-head">
+            <div class="guide-card-title"><span class="guide-card-icon">🔐</span>Sensitive param scrubbing</div>
+            <%= raw badge.call('ALWAYS ON', '#2563eb') %>
+          </div>
+          <div class="guide-card-desc">
+            Request params matching the sensitive list are never stored in context.
+            Defaults cover common secrets. Extend for your app's specific fields.
+          </div>
+          <div class="guide-card-code">
+            <%= raw code.call("# Defaults: password, token, access_token,\n# authorization, secret, ...\nconfig.sensitive_params += [\n  'credit_card', 'ssn', 'api_key'\n]") %>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <%# ── Generators ── %>
+    <div class="guide-section" id="generators">
+      <h2>🛠 Upgrade generators</h2>
+      <div class="guide-note">Run these in order as you enable new features.</div>
+      <table class="cfg-table">
+        <thead>
+          <tr>
+            <th>Generator</th>
+            <th>What it creates</th>
+            <th>Required for</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>error_radar:install</code></td>
+            <td>Base migration + initializer</td>
+            <td>Everything — run first</td>
+          </tr>
+          <tr>
+            <td><code>error_radar:upgrade_v050</code></td>
+            <td><code>github_issue_url</code> column</td>
+            <td>GitHub Issue URL persistence</td>
+          </tr>
+          <tr>
+            <td><code>error_radar:upgrade_v060</code></td>
+            <td><code>error_radar_occurrences</code> table</td>
+            <td><code>track_occurrences</code>, spike detection (DB mode)</td>
+          </tr>
+          <tr>
+            <td><code>error_radar:upgrade_v100</code></td>
+            <td><code>assigned_to</code> column + comments + activities tables</td>
+            <td>Assignment, comments, activity log</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <%# ── Config reference ── %>
+    <div class="guide-section" id="config-ref">
+      <h2>🗂 Configuration reference <span style="font-size:12px;font-weight:400;color:#6b7280">— current values</span></h2>
+      <table class="cfg-table">
+        <thead>
+          <tr>
+            <th style="width:220px">Option</th>
+            <th style="width:130px">Current value</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%
+            rows = [
+              ['enabled',                   cfg.enabled,                        'Master switch. Set false in test env.'],
+              ['backtrace_lines',           cfg.backtrace_lines,                'How many backtrace lines to store per error.'],
+              ['max_message_length',        cfg.max_message_length,             'Truncate stored messages to this many chars.'],
+              ['install_middleware',        cfg.install_middleware,             'Auto-capture web exceptions via Rack.'],
+              ['install_active_job',        cfg.install_active_job,            'Auto-capture ActiveJob failures.'],
+              ['install_sidekiq',          cfg.install_sidekiq,               'Auto-capture Sidekiq job failures.'],
+              ['install_rake',             cfg.install_rake,                  'Auto-capture Rake task failures.'],
+              ['install_rails_admin',      cfg.install_rails_admin,           'Register ErrorLog board in RailsAdmin.'],
+              ['notify_on',                Array(cfg.notify_on).join(', '),   'When to fire alerts (:new_error/:critical/:all/:spike).'],
+              ['spike_threshold',          cfg.spike_threshold,               'Occurrence count that triggers a spike alert.'],
+              ['spike_window_minutes',     cfg.spike_window_minutes,          'Rolling window (minutes) for spike detection.'],
+              ['slack_webhook_url',        cfg.slack_webhook_url.present? ? '*** (set)' : nil, 'Slack incoming webhook URL.'],
+              ['slack_channel',            cfg.slack_channel,                 'Override Slack target channel (optional).'],
+              ['discord_webhook_url',      cfg.discord_webhook_url.present? ? '*** (set)' : nil, 'Discord incoming webhook URL.'],
+              ['email_recipients',         cfg.email_recipients.any? ? cfg.email_recipients.join(', ') : nil, 'Email addresses for alert emails.'],
+              ['email_from',              cfg.email_from,                    'From address for notification emails.'],
+              ['webhook_urls',             cfg.webhook_urls.any? ? "#{cfg.webhook_urls.size} URL(s)" : nil, 'Generic webhook URLs (POST JSON on each alert).'],
+              ['app_name',                cfg.app_name,                      'App name shown in notifications.'],
+              ['app_host',                cfg.app_host,                      'Base URL for deep-links in notifications.'],
+              ['api_token',               cfg.api_token.present? ? '*** (set)' : nil, 'Bearer token for /api/* endpoints.'],
+              ['github_token',            cfg.github_token.present? ? '*** (set)' : nil, 'GitHub personal access token (repo scope).'],
+              ['github_repo',             cfg.github_repo,                   '"owner/repo" for GitHub Issue creation.'],
+              ['async_capture',           cfg.async_capture,                 'Write ErrorLog via ActiveJob (non-blocking).'],
+              ['capture_job_queue',       cfg.capture_job_queue,             'Queue name for CaptureJob.'],
+              ['track_occurrences',       cfg.track_occurrences,             'Store each hit in error_radar_occurrences.'],
+              ['max_occurrences_per_error',cfg.max_occurrences_per_error,    'Keep last N occurrences per error (oldest pruned).'],
+              ['retention_days',          cfg.retention_days,                'Delete resolved/ignored records older than N days.'],
+              ['max_records',             cfg.max_records,                   'Hard cap on total records (oldest pruned first).'],
+              ['digest_enabled',          cfg.digest_enabled,                'Enable digest email delivery.'],
+              ['digest_recipients',       cfg.digest_recipients.any? ? cfg.digest_recipients.join(', ') : nil, 'Digest email recipients (falls back to email_recipients).'],
+            ]
+          %>
+          <% rows.each do |key, val, desc| %>
+            <tr>
+              <td><code>config.<%= key %></code></td>
+              <td>
+                <% if val.nil? || val == false || (val.respond_to?(:empty?) && val.empty?) %>
+                  <span style="color:#9ca3af"><%= val.nil? ? 'nil' : val.to_s.empty? ? '(empty)' : val.inspect %></span>
+                <% elsif val == true %>
+                  <span style="color:#16a34a;font-weight:600">true</span>
+                <% else %>
+                  <span style="color:#1f2937"><%= val %></span>
+                <% end %>
+              </td>
+              <td style="color:#6b7280"><%= desc %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+  </div><%# end main %>
+</div><%# end guide-wrap %>
