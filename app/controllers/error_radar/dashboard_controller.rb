@@ -5,7 +5,6 @@ module ErrorRadar
   # kanban board over ErrorLog statuses.
   class DashboardController < ApplicationController
     before_action :authenticate_request!
-    before_action :set_error, only: %i[show update_status]
 
     KANBAN_LIMIT = 100
     SEVERITY_ORDER = { 'critical' => 0, 'error' => 1, 'warning' => 2, 'info' => 3 }.freeze
@@ -47,28 +46,7 @@ module ErrorRadar
       @external_links = build_external_links
     end
 
-    def show; end
-
-    def update_status
-      new_status = params[:status].to_s
-      unless ErrorLog.statuses.key?(new_status)
-        return render json: { ok: false, error: 'invalid status' }, status: :unprocessable_entity
-      end
-
-      if new_status == 'resolved'
-        @error.resolve!(by: error_radar_current_user)
-      else
-        @error.update!(status: new_status, resolved_at: nil)
-      end
-
-      render json: { ok: true, id: @error.id, status: @error.status }
-    end
-
     private
-
-    def set_error
-      @error = ErrorLog.find(params[:id])
-    end
 
     def build_external_links
       links = {}

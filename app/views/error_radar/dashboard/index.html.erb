@@ -3,9 +3,12 @@
   status_labels = { 'open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'ignored' => 'Ignored' }
 %>
 
-<h1>🛰 Error Radar</h1>
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+  <h1>Dashboard</h1>
+  <%= link_to 'View All Errors →', errors_path, style: 'font-size:13px' %>
+</div>
 <div class="sub">
-  Track &amp; triage system errors
+  Error overview &amp; kanban board
   <% @external_links.each do |label, href| %>
     · <%= link_to(label.to_s.humanize, href) %>
   <% end %>
@@ -70,7 +73,10 @@
 
 <div class="grid2">
   <div class="panel">
-    <h2>Top 10 errors (unresolved, by occurrences)</h2>
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <h2 style="margin:0 0 12px">Top 10 errors (unresolved, by occurrences)</h2>
+      <%= link_to 'See all →', errors_path(status: 'open'), style: 'font-size:12px' %>
+    </div>
     <table>
       <thead><tr><th>Severity</th><th>Source</th><th>Message</th><th>Count</th><th>Last seen</th></tr></thead>
       <tbody>

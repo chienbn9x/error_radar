@@ -32,7 +32,8 @@ module ErrorRadar
     attr_accessor :sensitive_params
 
     # Integration toggles.
-    attr_accessor :install_middleware, :install_sidekiq, :install_rails_admin
+    attr_accessor :install_middleware, :install_sidekiq, :install_rails_admin,
+                  :install_active_job, :install_rake
 
     # Custom classification rules. Each is a callable `->(exception) { :category | nil }`.
     # The first rule that returns a non-nil category wins; built-in rules run after.
@@ -73,9 +74,11 @@ module ErrorRadar
         ActionDispatch::Http::Parameters::ParseError
       ]
       @sensitive_params   = %w[password password_confirmation token access_token authorization secret]
-      @install_middleware = true
-      @install_sidekiq    = true
+      @install_middleware  = true
+      @install_sidekiq     = true
       @install_rails_admin = true
+      @install_active_job  = true
+      @install_rake        = true
       @categorizers       = []
       @detail_extractors  = []
       @expected_servers   = []

@@ -1,0 +1,297 @@
+<%
+  sev_colors    = { 'info' => '#17a2b8', 'warning' => '#fd7e14', 'error' => '#dc3545', 'critical' => '#7b001c' }
+  status_colors = { 'open' => '#dc3545', 'in_progress' => '#fd7e14', 'resolved' => '#28a745', 'ignored' => '#6c757d' }
+  fp            = @filter_params
+  current_sort  = fp['sort'] || 'last_seen_at'
+  current_order = fp['order'] || 'desc'
+
+  sort_url = ->(col) {
+    dir = (current_sort == col && current_order != 'asc') ? 'asc' : 'desc'
+    errors_path(fp.reject { |k, _| k == 'page' }.merge('sort' => col, 'order' => dir))
+  }
+  sort_arrow = ->(col) {
+    next '' unless current_sort == col
+    current_order == 'asc' ? ' ↑' : ' ↓'
+  }
+
+  offset_start = @total_count == 0 ? 0 : ((@page - 1) * 50) + 1
+  offset_end   = [offset_start + @errors.size - 1, @total_count].min
+  filters_on   = fp.values.any?(&:present?)
+%>
+
+<style>
+  .er-list-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .er-list-header h1 { margin: 0; }
+  .er-filter-bar { margin-bottom: 12px; }
+  .er-filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .er-filter-row input[type=text], .er-filter-row select, .er-filter-row input[type=date] {
+    border: 1px solid #d1d5db; border-radius: 7px; padding: 6px 10px; font-size: 13px;
+    background: #fff; color: #1f2933; height: 34px;
+  }
+  .er-filter-row input[type=text] { min-width: 260px; }
+  .er-filter-row select { min-width: 130px; }
+  .er-filter-row input[type=date] { min-width: 130px; }
+  .btn-filter { background: #2563eb; color: #fff; border: 0; border-radius: 7px; padding: 0 16px; height: 34px; font-size: 13px; cursor: pointer; }
+  .btn-filter:hover { background: #1d4ed8; }
+  .btn-clear { font-size: 13px; color: #6b7280; padding: 0 8px; }
+  .btn-clear:hover { color: #1f2933; }
+  .er-results-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; min-height: 36px; }
+  .er-results-count { font-size: 13px; color: #6b7280; }
+  .er-bulk-bar { display: none; align-items: center; gap: 8px; }
+  .btn-bulk { border: 0; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #fff; }
+  .btn-bulk-resolve { background: #28a745; } .btn-bulk-ignore { background: #6c757d; }
+  .btn-bulk-reopen  { background: #fd7e14; } .btn-bulk-delete  { background: #dc3545; }
+  .btn-bulk:hover   { opacity: .85; }
+  .er-table thead th { position: sticky; top: 0; background: #f9fafb; z-index: 1; white-space: nowrap; }
+  .er-table thead th a { color: #6b7280; font-size: 12px; }
+  .er-table thead th a:hover { color: #1f2933; }
+  .er-table tbody tr:hover { background: #f8fafc; }
+  .er-table tbody tr.row-checked { background: #eff6ff; }
+  .er-actions a { display: inline-block; padding: 2px 6px; border-radius: 5px; font-size: 12px; margin: 0 2px; }
+  .er-actions a:hover { background: #f3f4f6; }
+  .er-pagination { display: flex; gap: 4px; align-items: center; margin-top: 16px; justify-content: center; flex-wrap: wrap; }
+  .er-page-link { display: inline-block; padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; color: #374151; background: #fff; }
+  .er-page-link:hover { background: #f3f4f6; border-color: #9ca3af; }
+  .er-page-link.active { background: #2563eb; border-color: #2563eb; color: #fff; pointer-events: none; }
+  .er-page-ellipsis { padding: 5px 4px; color: #9ca3af; font-size: 13px; }
+  .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+</style>
+
+<div class="er-list-header">
+  <h1>All Errors</h1>
+  <span class="sub" style="margin:0"><%= @total_count %> total</span>
+</div>
+
+<%# ─── Filter bar ─── %>
+<div class="panel er-filter-bar">
+  <form action="<%= errors_path %>" method="GET" data-turbo="false">
+    <div class="er-filter-row">
+      <input type="text" name="q" value="<%= fp['q'] %>" placeholder="Search error class, message, source…">
+
+      <select name="status">
+        <option value="">All statuses</option>
+        <% ErrorLog.statuses.each_key do |s| %>
+          <option value="<%= s %>" <%= 'selected' if fp['status'] == s %>><%= s.humanize %></option>
+        <% end %>
+      </select>
+
+      <select name="severity">
+        <option value="">All severities</option>
+        <% ErrorLog.severities.each_key do |s| %>
+          <option value="<%= s %>" <%= 'selected' if fp['severity'] == s %>><%= s.capitalize %></option>
+        <% end %>
+      </select>
+
+      <select name="category">
+        <option value="">All categories</option>
+        <% ErrorLog.categories.each_key do |s| %>
+          <option value="<%= s %>" <%= 'selected' if fp['category'] == s.to_s %>><%= s.to_s.humanize %></option>
+        <% end %>
+      </select>
+
+      <input type="date" name="from" value="<%= fp['from'] %>" title="Last seen from">
+      <input type="date" name="to"   value="<%= fp['to'] %>"   title="Last seen to">
+
+      <button type="submit" class="btn-filter">Filter</button>
+      <% if filters_on %>
+        <a href="<%= errors_path %>" class="btn-clear">Clear</a>
+      <% end %>
+    </div>
+  </form>
+</div>
+
+<%# ─── Results bar + bulk actions ─── %>
+<div class="er-results-bar">
+  <span class="er-results-count">
+    <% if @total_count == 0 %>
+      No errors found<% if filters_on %> matching your filters<% end %>
+    <% elsif @total_count <= 50 %>
+      <%= @total_count %> errors
+    <% else %>
+      <%= offset_start %>–<%= offset_end %> of <%= @total_count %> errors
+    <% end %>
+  </span>
+
+  <div class="er-bulk-bar" id="bulk-bar">
+    <span id="bulk-count" style="font-size:13px;color:#374151;font-weight:600"></span>
+    <button class="btn-bulk btn-bulk-resolve" onclick="bulkAction('resolve')">Resolve</button>
+    <button class="btn-bulk btn-bulk-ignore"  onclick="bulkAction('ignore')">Ignore</button>
+    <button class="btn-bulk btn-bulk-reopen"  onclick="bulkAction('reopen')">Reopen</button>
+    <button class="btn-bulk btn-bulk-delete"  onclick="bulkAction('delete')">Delete</button>
+  </div>
+</div>
+
+<%# ─── Table ─── %>
+<div class="panel" style="padding:0;overflow:hidden">
+  <% if @errors.empty? %>
+    <div style="padding:48px;text-align:center;color:#9ca3af;font-size:14px">
+      <div style="font-size:32px;margin-bottom:12px">✓</div>
+      No errors<% if filters_on %> match your filters<% else %> recorded<% end %>.
+    </div>
+  <% else %>
+    <div style="overflow-x:auto">
+      <table class="er-table">
+        <thead>
+          <tr>
+            <th style="width:36px;padding:10px 8px">
+              <input type="checkbox" id="select-all" onchange="toggleAll(this)" title="Select all">
+            </th>
+            <th><a href="<%= sort_url.call('severity') %>">Severity<%= sort_arrow.call('severity') %></a></th>
+            <th>Status</th>
+            <th>Error Class</th>
+            <th>Source</th>
+            <th style="min-width:240px">Message</th>
+            <th><a href="<%= sort_url.call('occurrences') %>">Count<%= sort_arrow.call('occurrences') %></a></th>
+            <th><a href="<%= sort_url.call('last_seen_at') %>">Last Seen<%= sort_arrow.call('last_seen_at') %></a></th>
+            <th style="width:80px">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @errors.each do |e| %>
+            <tr class="error-row" data-id="<%= e.id %>">
+              <td style="padding:8px"><input type="checkbox" class="row-cb" value="<%= e.id %>" onchange="onRowCheck(this)"></td>
+              <td><span class="badge" style="background:<%= sev_colors[e.severity] %>"><%= e.severity %></span></td>
+              <td><span class="badge" style="background:<%= status_colors[e.status] %>"><%= e.status.humanize %></span></td>
+              <td class="mono"><%= link_to e.error_class.to_s.truncate(40), error_path(e), title: e.error_class %></td>
+              <td style="font-size:12px;color:#6b7280;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="<%= e.source %>"><%= e.source %></td>
+              <td style="font-size:12px;color:#374151"><%= e.short_message %></td>
+              <td style="font-weight:600;color:<%= e.occurrences > 100 ? '#dc3545' : '#374151' %>"><%= e.occurrences %></td>
+              <td style="font-size:12px;color:#6b7280;white-space:nowrap"><%= e.last_seen_at&.strftime('%m/%d %H:%M') %></td>
+              <td class="er-actions" style="white-space:nowrap">
+                <% unless e.status_resolved? %>
+                  <a href="#" class="quick-resolve" data-id="<%= e.id %>" data-url="<%= error_status_path(e) %>" title="Resolve">✓</a>
+                <% end %>
+                <% unless e.status_ignored? %>
+                  <a href="#" class="quick-ignore" data-id="<%= e.id %>" data-url="<%= error_status_path(e) %>" title="Ignore">✕</a>
+                <% end %>
+                <%= link_to '→', error_path(e), title: 'View detail', style: 'color:#2563eb' %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>
+
+<%# ─── Pagination ─── %>
+<% if @pages.any? %>
+  <div class="er-pagination">
+    <% if @page > 1 %>
+      <%= link_to '← Prev', errors_path(fp.merge('page' => @page - 1)), class: 'er-page-link' %>
+    <% end %>
+
+    <% @pages.each do |p| %>
+      <% if p == '...' %>
+        <span class="er-page-ellipsis">…</span>
+      <% else %>
+        <%= link_to p, errors_path(fp.merge('page' => p)), class: "er-page-link #{p == @page ? 'active' : ''}" %>
+      <% end %>
+    <% end %>
+
+    <% if @page < @total_pages %>
+      <%= link_to 'Next →', errors_path(fp.merge('page' => @page + 1)), class: 'er-page-link' %>
+    <% end %>
+  </div>
+<% end %>
+
+<script>
+(function () {
+  var BULK_URL = '<%= errors_bulk_path %>';
+  var CSRF     = document.querySelector('meta[name="csrf-token"]').content;
+
+  // ── checkbox state ──
+  function selectedIds() {
+    return Array.from(document.querySelectorAll('.row-cb:checked')).map(function (c) { return c.value; });
+  }
+
+  window.onRowCheck = function (cb) {
+    var row = cb.closest('tr');
+    row.classList.toggle('row-checked', cb.checked);
+    syncBulkBar();
+  };
+
+  window.toggleAll = function (masterCb) {
+    document.querySelectorAll('.row-cb').forEach(function (c) {
+      c.checked = masterCb.checked;
+      c.closest('tr').classList.toggle('row-checked', masterCb.checked);
+    });
+    syncBulkBar();
+  };
+
+  function syncBulkBar() {
+    var ids = selectedIds();
+    var bar = document.getElementById('bulk-bar');
+    var cnt = document.getElementById('bulk-count');
+    if (ids.length > 0) {
+      bar.style.display = 'flex';
+      cnt.textContent = ids.length + ' selected';
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  // ── bulk actions ──
+  window.bulkAction = function (action) {
+    var ids = selectedIds();
+    if (!ids.length) return;
+    if (action === 'delete' && !confirm('Permanently delete ' + ids.length + ' error(s)? This cannot be undone.')) return;
+
+    fetch(BULK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify({ ids: ids, bulk_action: action })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok) {
+        toast(d.count + ' errors ' + action + 'd', true);
+        setTimeout(function () { location.reload(); }, 700);
+      } else {
+        toast('Error: ' + (d.error || 'failed'), false);
+      }
+    })
+    .catch(function () { toast('Network error', false); });
+  };
+
+  // ── quick row actions ──
+  document.querySelectorAll('.quick-resolve').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      quickStatus(a.dataset.url, a.dataset.id, 'resolved');
+    });
+  });
+  document.querySelectorAll('.quick-ignore').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      quickStatus(a.dataset.url, a.dataset.id, 'ignored');
+    });
+  });
+
+  function quickStatus(url, id, status) {
+    fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify({ status: status })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok) {
+        toast('#' + id + ' → ' + d.status, true);
+        setTimeout(function () { location.reload(); }, 500);
+      } else {
+        toast('Failed: ' + (d.error || ''), false);
+      }
+    });
+  }
+
+  // ── toast ──
+  function toast(msg, ok) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = ok ? '#16a34a' : '#dc2626';
+    t.classList.add('show');
+    setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+})();
+</script>

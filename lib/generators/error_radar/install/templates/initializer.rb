@@ -8,9 +8,11 @@ ErrorRadar.configure do |config|
   config.enabled = !Rails.env.test?
 
   # --- Integrations (auto-detected; flip off if you don't want them) ---
-  config.install_middleware  = true   # Rack: capture web-layer exceptions
-  config.install_sidekiq     = true   # capture Sidekiq job failures (if Sidekiq present)
-  config.install_rails_admin = true   # register the ErrorLog board (if RailsAdmin present)
+  config.install_middleware  = true   # Rack: capture web-layer exceptions (auto)
+  config.install_sidekiq     = true   # capture Sidekiq job failures (auto, if Sidekiq present)
+  config.install_active_job  = true   # capture ActiveJob failures for any adapter (auto)
+  config.install_rake        = true   # capture Rake task failures (auto)
+  config.install_rails_admin = true   # register the ErrorLog board (auto, if RailsAdmin present)
 
   # --- Dashboard access control ---
   # Run as a before_action; raise/redirect inside to deny. Example with Devise:
@@ -45,10 +47,6 @@ ErrorRadar.configure do |config|
   # ]
 end
 
-# --- Optional: capture ActiveJob failures across ALL queue adapters ---
-# Add to app/jobs/application_job.rb (skip if you only use Sidekiq, since the
-# Sidekiq integration above already covers it):
-#
-#   class ApplicationJob < ActiveJob::Base
-#     include ErrorRadar::Integrations::ActiveJob
-#   end
+# ActiveJob is now captured automatically via install_active_job = true above.
+# No changes needed in ApplicationJob. Set install_active_job = false if you
+# only use Sidekiq and want to avoid double-counting.
