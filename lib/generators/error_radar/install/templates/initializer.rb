@@ -84,6 +84,12 @@ ErrorRadar.configure do |config|
   # config.github_token = ENV['GITHUB_TOKEN']   # PAT with repo scope
   # config.github_repo  = 'myorg/myapp'         # "owner/repo" format
 
+  # --- Occurrence History ---
+  # Store each individual error hit so you can see context/backtrace per occurrence.
+  # Requires running: bin/rails generate error_radar:upgrade_v060 && bin/rails db:migrate
+  # config.track_occurrences         = true
+  # config.max_occurrences_per_error = 200  # keep last N per error (oldest pruned on each new hit)
+
   # --- Performance & Async Capture ---
   # Write ErrorLog records via ActiveJob so exceptions don't block the request.
   # Requires ActiveJob + a queue adapter (Sidekiq, Solid Queue, etc.).

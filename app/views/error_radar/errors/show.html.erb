@@ -104,6 +104,97 @@
   </div>
 </div>
 
+<%# ── Occurrences History ── %>
+<% if ErrorRadar.config.track_occurrences %>
+  <div class="panel" style="margin-top:16px" id="occurrences-panel">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+      <h2 style="margin:0">Occurrence History
+        <% if @occ_total.to_i > 0 %>
+          <span style="font-size:13px;font-weight:400;color:#6b7280">(<%= @occ_total %> total)</span>
+        <% end %>
+      </h2>
+    </div>
+
+    <% if @occurrences.empty? %>
+      <p style="font-size:13px;color:#9ca3af;margin:0">
+        <% if @occ_total.to_i == 0 %>
+          No occurrences recorded yet. New hits will appear here.
+        <% else %>
+          No occurrences on this page.
+        <% end %>
+      </p>
+    <% else %>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:2px solid #e5e7eb">
+            <th style="text-align:left;padding:6px 8px;color:#6b7280;width:170px">Time</th>
+            <th style="text-align:left;padding:6px 8px;color:#6b7280;width:70px">HTTP</th>
+            <th style="text-align:left;padding:6px 8px;color:#6b7280">Context / Request</th>
+            <th style="text-align:left;padding:6px 8px;color:#6b7280;width:80px">Backtrace</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @occurrences.each_with_index do |occ, i| %>
+            <tr style="border-bottom:1px solid #f3f4f6" class="occ-row">
+              <td style="padding:7px 8px;font-family:monospace;font-size:11px;white-space:nowrap">
+                <%= occ.occurred_at&.strftime('%Y-%m-%d %H:%M:%S') %>
+              </td>
+              <td style="padding:7px 8px">
+                <% if occ.http_status.present? %>
+                  <span class="badge" style="background:<%= occ.http_status.to_i >= 500 ? '#dc3545' : '#fd7e14' %>">
+                    <%= occ.http_status %>
+                  </span>
+                <% end %>
+              </td>
+              <td style="padding:7px 8px;max-width:400px">
+                <% if occ.request_url.present? %>
+                  <div style="font-size:11px;color:#6b7280;word-break:break-all;margin-bottom:4px"><%= occ.request_url.truncate(120) %></div>
+                <% end %>
+                <% unless (occ.context || {}).empty? %>
+                  <button onclick="toggleOcc('ctx-<%= i %>')"
+                          style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#f9fafb;cursor:pointer">
+                    Context ▾
+                  </button>
+                  <div id="ctx-<%= i %>" style="display:none;margin-top:6px">
+                    <pre class="er-pre" style="max-height:200px;font-size:10px"><%= occ.context_pretty %></pre>
+                  </div>
+                <% end %>
+              </td>
+              <td style="padding:7px 8px">
+                <% if occ.backtrace.present? %>
+                  <button onclick="toggleOcc('bt-<%= i %>')"
+                          style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#f9fafb;cursor:pointer">
+                    Stack ▾
+                  </button>
+                  <div id="bt-<%= i %>" style="display:none;position:absolute;z-index:10;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;width:600px;max-width:90vw;box-shadow:0 4px 16px rgba(0,0,0,.12)">
+                    <pre class="er-pre" style="max-height:300px"><%= occ.backtrace %></pre>
+                    <button onclick="toggleOcc('bt-<%= i %>')" style="margin-top:6px;font-size:11px;border:0;background:none;cursor:pointer;color:#6b7280">Close</button>
+                  </div>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+
+      <%# Pagination %>
+      <% if @occ_total_pages.to_i > 1 %>
+        <div style="margin-top:12px;display:flex;gap:6px;font-size:12px;align-items:center">
+          <% (1..@occ_total_pages).each do |p| %>
+            <% if p == @occ_page %>
+              <span style="padding:4px 10px;background:#2563eb;color:#fff;border-radius:6px"><%= p %></span>
+            <% else %>
+              <%= link_to p, error_path(@error, occ_page: p, anchor: 'occurrences-panel'),
+                    style: 'padding:4px 10px;border:1px solid #d1d5db;border-radius:6px;text-decoration:none;color:#374151' %>
+            <% end %>
+          <% end %>
+          <span style="color:#9ca3af">of <%= @occ_total_pages %> pages</span>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>
+
 <%# ── GitHub Issue ── %>
 <% if ErrorRadar.config.github_token.present? && ErrorRadar.config.github_repo.present? %>
   <div class="panel" style="margin-top:16px">
@@ -130,6 +221,11 @@
 <% end %>
 
 <script>
+  window.toggleOcc = function (id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  };
+
 (function () {
   var CSRF       = document.querySelector('meta[name="csrf-token"]').content;
   var STATUS_URL = '<%= error_status_path(@error) %>';

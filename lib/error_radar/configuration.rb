@@ -69,6 +69,14 @@ module ErrorRadar
       @error_callbacks << block
     end
 
+    # Occurrences ─────────────────────────────────────────────────────────────
+    # When true, each individual error hit is stored in error_radar_occurrences.
+    # Requires running: bin/rails generate error_radar:upgrade_v060 && bin/rails db:migrate
+    attr_accessor :track_occurrences
+    # Maximum occurrences to keep per ErrorLog. Oldest are pruned on each new hit.
+    # nil = keep all (not recommended for high-volume apps).
+    attr_accessor :max_occurrences_per_error
+
     # Performance ─────────────────────────────────────────────────────────────
     # When true, ErrorLog.record is enqueued via ActiveJob (non-blocking).
     # Requires ActiveJob to be configured. Falls back to sync if ActiveJob is absent.
@@ -147,6 +155,9 @@ module ErrorRadar
       @app_name             = nil
       @app_host             = nil
       @error_callbacks      = []
+
+      @track_occurrences        = false
+      @max_occurrences_per_error = 200
 
       @async_capture     = false
       @capture_job_queue = :default

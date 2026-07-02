@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-07-03
+
+### Added
+- **Occurrence history**: every individual error hit can now be stored in a
+  separate `error_radar_occurrences` table. Enable with
+  `config.track_occurrences = true` after running the upgrade migration:
+  `bin/rails generate error_radar:upgrade_v060 && bin/rails db:migrate`.
+- **`ErrorRadar::ErrorOccurrence` model**: columns `occurred_at`, `context`,
+  `backtrace`, `http_status`, `request_url`. Belongs to `ErrorLog` via
+  `error_log_id`. Indexed on `(error_log_id, occurred_at)` for fast retrieval.
+- **`config.max_occurrences_per_error`** (default: 200): automatically prunes
+  the oldest occurrences for a given error on each new hit so the table stays
+  bounded without manual cleanup.
+- **Occurrences panel on error detail page**: shows the 20 most recent
+  occurrences with timestamp, HTTP status badge, request URL, and expandable
+  "Context" / "Stack" toggles. Paginated at 20 per page.
+- **`GET /api/errors/:id`** now includes `recent_occurrences` (last 10 hits
+  with `occurred_at`, `http_status`, `request_url`, `context`) when
+  `track_occurrences` is enabled.
+- **`error_radar:upgrade_v060` generator**: generates the migration that creates
+  `error_radar_occurrences`.
+- **`ErrorLog#occurrences`** association: `has_many :occurrences, dependent: :delete_all`
+  so destroying an error log also removes its occurrence history.
+
+### Notes
+- `track_occurrences` defaults to `false` to avoid unexpected writes before the
+  migration is run. Set it to `true` after the migration has been applied.
+- Occurrences are recorded via `ErrorLog.record`, which is called by both the
+  synchronous capture path and `CaptureJob` (async path) — no extra
+  configuration needed once enabled.
+
 ## [0.6.0] - 2026-07-03
 
 ### Added

@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+class CreateErrorRadarOccurrences < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :error_radar_occurrences do |t|
+      t.references :error_log, null: false,
+                               foreign_key: { to_table: :error_radar_error_logs },
+                               index: false  # covered by composite index below
+
+      t.datetime :occurred_at, null: false
+
+      t.json    :context      # structured payload snapshot for this hit
+      t.text    :backtrace    # backtrace at the moment of this occurrence
+      t.integer :http_status
+      t.string  :request_url, limit: 2000
+
+      t.timestamps
+    end
+
+    # Fast per-error chronological listing
+    add_index :error_radar_occurrences, %i[error_log_id occurred_at],
+              name: 'idx_er_occurrences_log_time'
+  end
+end

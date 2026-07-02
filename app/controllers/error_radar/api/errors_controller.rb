@@ -99,6 +99,22 @@ module ErrorRadar
             context:         log.context,
             backtrace:       log.backtrace
           )
+
+          if ErrorRadar.config.track_occurrences
+            begin
+              data[:recent_occurrences] = log.occurrences.recent.limit(10).map do |occ|
+                {
+                  id:           occ.id,
+                  occurred_at:  occ.occurred_at&.iso8601,
+                  http_status:  occ.http_status,
+                  request_url:  occ.request_url,
+                  context:      occ.context
+                }
+              end
+            rescue ActiveRecord::StatementInvalid
+              data[:recent_occurrences] = []
+            end
+          end
         end
 
         if log.class.column_names.include?('github_issue_url')

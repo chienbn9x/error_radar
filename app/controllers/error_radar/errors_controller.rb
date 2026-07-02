@@ -22,7 +22,23 @@ module ErrorRadar
       @pages        = pagination_pages(@page, @total_pages)
     end
 
-    def show; end
+    def show
+      @occurrences = []
+      return unless ErrorRadar.config.track_occurrences
+
+      begin
+        @occ_page       = [params[:occ_page].to_i, 1].max
+        occ_per_page    = 20
+        @occ_total      = @error.occurrences.count
+        @occ_total_pages = [(@occ_total.to_f / occ_per_page).ceil, 1].max
+        @occ_page       = [@occ_page, @occ_total_pages].min
+        @occurrences    = @error.occurrences.recent
+                                .limit(occ_per_page)
+                                .offset((@occ_page - 1) * occ_per_page)
+      rescue ActiveRecord::StatementInvalid
+        @occurrences = []
+      end
+    end
 
     def update_status
       new_status = params[:status].to_s

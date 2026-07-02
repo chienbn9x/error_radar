@@ -16,6 +16,10 @@ module ErrorRadar
 
     enum status: { open: 0, in_progress: 1, resolved: 2, ignored: 3 }, _prefix: :status
 
+    has_many :occurrences, class_name: 'ErrorRadar::ErrorOccurrence',
+                           foreign_key: :error_log_id,
+                           dependent: :delete_all
+
     validates :fingerprint, presence: true, uniqueness: true
     validates :first_seen_at, :last_seen_at, presence: true
 
@@ -60,6 +64,17 @@ module ErrorRadar
       log.last_seen_at = now
       log.save!
       log.instance_variable_set(:@new_fingerprint, new_fingerprint)
+
+      if ErrorRadar.config.track_occurrences
+        ErrorRadar::ErrorOccurrence.record_for(
+          log,
+          context:     context,
+          backtrace:   backtrace,
+          http_status: http_status,
+          request_url: request_url
+        )
+      end
+
       log
     rescue StandardError => e
       ErrorRadar::Tracking.warn_internal("ErrorLog.record failed: #{e.class}: #{e.message}")
