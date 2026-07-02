@@ -95,7 +95,7 @@ module ErrorRadar
                           .gsub(/0x[0-9a-f]+/i, '0x#')             # object addresses
                           .gsub(/[0-9a-f]{8}-[0-9a-f-]{27}/i, '#') # uuids
                           .strip
-      Digest::SHA1.hexdigest([category, error_class, source, normalized].join('|'))
+      ::Digest::SHA1.hexdigest([category, error_class, source, normalized].join('|'))
     end
 
     def self.severity_rank(value)

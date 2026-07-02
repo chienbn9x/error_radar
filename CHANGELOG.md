@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2026-07-03
+
+### Fixed
+- **`::Digest::SHA1` namespace clash**: `ErrorRadar::Digest` (our digest mailer
+  module) was shadowing Ruby stdlib's `Digest` inside `ErrorLog.build_fingerprint`,
+  causing `NameError: uninitialized constant ErrorRadar::Digest::SHA1` on every
+  captured error. Fixed by using `::Digest::SHA1` (root-level constant path).
+- **`ErrorLog` unresolved in views**: ERB templates run in `ActionView::Base`
+  context — outside the `ErrorRadar` module — so bare `ErrorLog` raised
+  `NameError: uninitialized constant ErrorLog` on the All Errors filter bar.
+  Changed to fully-qualified `ErrorRadar::ErrorLog` in the view.
+
 ## [1.0.2] - 2026-07-03
 
 ### Fixed

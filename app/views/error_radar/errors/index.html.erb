@@ -70,21 +70,21 @@
 
       <select name="status">
         <option value="">All statuses</option>
-        <% ErrorLog.statuses.each_key do |s| %>
+        <% ErrorRadar::ErrorLog.statuses.each_key do |s| %>
           <option value="<%= s %>" <%= 'selected' if fp['status'] == s %>><%= s.humanize %></option>
         <% end %>
       </select>
 
       <select name="severity">
         <option value="">All severities</option>
-        <% ErrorLog.severities.each_key do |s| %>
+        <% ErrorRadar::ErrorLog.severities.each_key do |s| %>
           <option value="<%= s %>" <%= 'selected' if fp['severity'] == s %>><%= s.capitalize %></option>
         <% end %>
       </select>
 
       <select name="category">
         <option value="">All categories</option>
-        <% ErrorLog.categories.each_key do |s| %>
+        <% ErrorRadar::ErrorLog.categories.each_key do |s| %>
           <option value="<%= s %>" <%= 'selected' if fp['category'] == s.to_s %>><%= s.to_s.humanize %></option>
         <% end %>
       </select>
